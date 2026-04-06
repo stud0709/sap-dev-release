@@ -1,0 +1,31 @@
+name: Create Release on Push
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set Release Name
+        run: echo "RELEASE_VERSION=v${{ github.run_number }}" >> $GITHUB_ENV
+
+      - name: Zip Folder
+        run: zip -r "sap-dev-${{ env.RELEASE_VERSION }}.zip" . -x ".git/*" ".github/*"
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.RELEASE_VERSION }}
+          name: Release ${{ env.RELEASE_VERSION }}
+          files: Project-${{ env.RELEASE_VERSION }}.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
