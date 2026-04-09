@@ -19,7 +19,7 @@ jobs:
         run: echo "RELEASE_VERSION=v${{ github.run_number }}" >> $GITHUB_ENV
 
       - name: Zip Folder
-        run: zip -r "sap-dev-${{ env.RELEASE_VERSION }}.zip" . -x ".git/*" ".github/*"
+        run: zip -r "sap-dev-${{ env.RELEASE_VERSION }}.zip" . -x "./.git/*" "./.github/*" ".git*" ".github*"
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
