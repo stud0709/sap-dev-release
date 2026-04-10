@@ -1,4 +1,4 @@
-"! sha256:fef7aabc53521c396b94b2428ee9b92d2d3d357d28b9fbcce8ebcc28dc0b9cd1
+"! sha256:14a7c13b2d7bafda8675d78ce76eee6195b24cea23553ca7f8144165eaa2c7a4
 CLASS zcl_webrtc_tunnel DEFINITION
   PUBLIC
   FINAL
@@ -39,7 +39,7 @@ CLASS zcl_webrtc_tunnel IMPLEMENTATION.
     APPEND |        <h2>SAP ADT P2P Tunnel to { sy-sysid } (Client { sy-mandt })</h2>| TO lt_html.
     APPEND `        <p>1. Paste the Offer SDP from your local sap-bridge instance:</p>` TO lt_html.
     APPEND `        <textarea id="offerInput" placeholder="Paste Base64 Offer here..."></textarea>` TO lt_html.
-    APPEND `        <button onclick="startConnection()">Generate Answer</button>` TO lt_html.
+    APPEND `        <button id="generateBtn" onclick="startConnection()">Generate Answer</button>` TO lt_html.
     APPEND `        ` TO lt_html.
     APPEND `        <p style="margin-top:20px;">2. Copy this Answer SDP back to your local sap-bridge:</p>` TO lt_html.
     APPEND `        <textarea id="answerOutput" readonly placeholder="Waiting for connection..."></textarea>` TO lt_html.
@@ -81,6 +81,7 @@ CLASS zcl_webrtc_tunnel IMPLEMENTATION.
     APPEND `            if (event.candidate === null) {` TO lt_html.
     APPEND `                const answerStr = btoa(JSON.stringify(pc.localDescription));` TO lt_html.
     APPEND `                document.getElementById('answerOutput').value = answerStr;` TO lt_html.
+    APPEND `                document.getElementById('generateBtn').disabled = false;` TO lt_html.
     APPEND `            }` TO lt_html.
     APPEND `        };` TO lt_html.
     APPEND `` TO lt_html.
@@ -96,6 +97,9 @@ CLASS zcl_webrtc_tunnel IMPLEMENTATION.
     APPEND `                    return;` TO lt_html.
     APPEND `                }` TO lt_html.
     APPEND `                ` TO lt_html.
+    APPEND `                document.getElementById('answerOutput').value = "Generating... Please wait (this can take ~15 seconds)...";` TO lt_html.
+    APPEND `                document.getElementById('generateBtn').disabled = true;` TO lt_html.
+    APPEND `                ` TO lt_html.
     APPEND `                await pc.setRemoteDescription(new RTCSessionDescription(wrapper.wrtc_desc));` TO lt_html.
     APPEND `                ` TO lt_html.
     APPEND `                const answer = await pc.createAnswer();` TO lt_html.
@@ -103,6 +107,8 @@ CLASS zcl_webrtc_tunnel IMPLEMENTATION.
     APPEND `                ` TO lt_html.
     APPEND `            } catch (err) {` TO lt_html.
     APPEND `                alert("Error starting connection: " + err.message);` TO lt_html.
+    APPEND `                document.getElementById('answerOutput').value = "";` TO lt_html.
+    APPEND `                document.getElementById('generateBtn').disabled = false;` TO lt_html.
     APPEND `            }` TO lt_html.
     APPEND `        }` TO lt_html.
     APPEND `` TO lt_html.
@@ -123,6 +129,7 @@ CLASS zcl_webrtc_tunnel IMPLEMENTATION.
     APPEND `                        headers: safeHeaders,` TO lt_html.
     APPEND `                        credentials: 'include'` TO lt_html.
     APPEND `                    };` TO lt_html.
+
     APPEND `                    if (req.body && req.method !== 'GET' && req.method !== 'HEAD') {` TO lt_html.
     APPEND `                        const bin = atob(req.body);` TO lt_html.
     APPEND `                        const len = bin.length;` TO lt_html.
