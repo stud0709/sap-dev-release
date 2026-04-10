@@ -1,3 +1,4 @@
+"! sha256:fef7aabc53521c396b94b2428ee9b92d2d3d357d28b9fbcce8ebcc28dc0b9cd1
 CLASS zcl_webrtc_tunnel DEFINITION
   PUBLIC
   FINAL
@@ -119,7 +120,8 @@ CLASS zcl_webrtc_tunnel IMPLEMENTATION.
     APPEND `                    }` TO lt_html.
     APPEND `                    const fetchOpts = {` TO lt_html.
     APPEND `                        method: req.method,` TO lt_html.
-    APPEND `                        headers: safeHeaders` TO lt_html.
+    APPEND `                        headers: safeHeaders,` TO lt_html.
+    APPEND `                        credentials: 'include'` TO lt_html.
     APPEND `                    };` TO lt_html.
     APPEND `                    if (req.body && req.method !== 'GET' && req.method !== 'HEAD') {` TO lt_html.
     APPEND `                        const bin = atob(req.body);` TO lt_html.
