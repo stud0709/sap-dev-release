@@ -19,13 +19,13 @@ jobs:
         run: echo "RELEASE_VERSION=v${{ github.run_number }}" >> $GITHUB_ENV
 
       - name: Zip Folder
-        run: zip -r "sap-dev-${{ env.RELEASE_VERSION }}.zip" . -x "./.git/*" "./.github/*" ".git*" ".github*"
+        run: zip -r "sap-dev-${{ env.RELEASE_VERSION }}.zip" sap-dev
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.RELEASE_VERSION }}
           name: Release ${{ env.RELEASE_VERSION }}
-          files: Project-${{ env.RELEASE_VERSION }}.zip
+          files: sap-dev-${{ env.RELEASE_VERSION }}.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
