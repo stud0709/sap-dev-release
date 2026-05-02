@@ -1,4 +1,3 @@
-"! sha256:14a7c13b2d7bafda8675d78ce76eee6195b24cea23553ca7f8144165eaa2c7a4
 CLASS zcl_webrtc_tunnel DEFINITION
   PUBLIC
   FINAL
@@ -8,6 +7,7 @@ CLASS zcl_webrtc_tunnel DEFINITION
     INTERFACES if_http_extension .
   PROTECTED SECTION.
   PRIVATE SECTION.
+    CONSTANTS lc_proxy_uuid TYPE string VALUE '5cbcdfbe-63be-4ebb-ade6-7b9765fd0e45'.
 ENDCLASS.
 
 CLASS zcl_webrtc_tunnel IMPLEMENTATION.
@@ -71,7 +71,15 @@ CLASS zcl_webrtc_tunnel IMPLEMENTATION.
     APPEND `            if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {` TO lt_html.
     APPEND `                ui.className = 'status online';` TO lt_html.
     APPEND `                ui.innerText = 'Status: Connected! Tunnel is active.';` TO lt_html.
-    APPEND `            } else if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed') {` TO lt_html.
+    APPEND `            } else if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'closed') {` TO lt_html.
+    APPEND `                ui.className = 'status offline';` TO lt_html.
+    APPEND `                ui.innerText = 'Status: Disconnected';` TO lt_html.
+    APPEND `            }` TO lt_html.
+    APPEND `        };` TO lt_html.
+    APPEND `` TO lt_html.
+    APPEND `        pc.onconnectionstatechange = () => {` TO lt_html.
+    APPEND `            const ui = document.getElementById('statusUI');` TO lt_html.
+    APPEND `            if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed' || pc.connectionState === 'closed') {` TO lt_html.
     APPEND `                ui.className = 'status offline';` TO lt_html.
     APPEND `                ui.innerText = 'Status: Disconnected';` TO lt_html.
     APPEND `            }` TO lt_html.
@@ -84,6 +92,7 @@ CLASS zcl_webrtc_tunnel IMPLEMENTATION.
     APPEND `                document.getElementById('generateBtn').disabled = false;` TO lt_html.
     APPEND `            }` TO lt_html.
     APPEND `        };` TO lt_html.
+    APPEND |        console.log("SAP Bridge WebRTC Proxy UUID: { lc_proxy_uuid }");| TO lt_html.
     APPEND `` TO lt_html.
     APPEND `        async function startConnection() {` TO lt_html.
     APPEND `            try {` TO lt_html.
@@ -113,6 +122,14 @@ CLASS zcl_webrtc_tunnel IMPLEMENTATION.
     APPEND `        }` TO lt_html.
     APPEND `` TO lt_html.
     APPEND `        function setupChannel(channel) {` TO lt_html.
+    APPEND `            channel.onclose = () => {` TO lt_html.
+    APPEND `                const ui = document.getElementById('statusUI');` TO lt_html.
+    APPEND `                ui.className = 'status offline';` TO lt_html.
+    APPEND `                ui.innerText = 'Status: Disconnected (Channel Closed)';` TO lt_html.
+    APPEND `            };` TO lt_html.
+    APPEND `            channel.onerror = (err) => {` TO lt_html.
+    APPEND `                console.error("Data channel error:", err);` TO lt_html.
+    APPEND `            };` TO lt_html.
     APPEND `            channel.onmessage = async (e) => {` TO lt_html.
     APPEND `                try {` TO lt_html.
     APPEND `                    const req = JSON.parse(e.data);` TO lt_html.
@@ -151,27 +168,46 @@ CLASS zcl_webrtc_tunnel IMPLEMENTATION.
     APPEND `                    }` TO lt_html.
     APPEND `                    const b64Body = btoa(binary);` TO lt_html.
     APPEND `` TO lt_html.
-    APPEND `                    channel.send(JSON.stringify({` TO lt_html.
+    APPEND `                    await sendChunked(channel, {` TO lt_html.
     APPEND `                        id: req.id,` TO lt_html.
     APPEND `                        status: res.status,` TO lt_html.
     APPEND `                        headers: outHeaders,` TO lt_html.
     APPEND `                        body: b64Body` TO lt_html.
-    APPEND `                    }));` TO lt_html.
+    APPEND `                    });` TO lt_html.
     APPEND `` TO lt_html.
     APPEND `                } catch(err) {` TO lt_html.
     APPEND `                    console.error("Fetch proxy error:", err);` TO lt_html.
     APPEND `                    let reqId = "";` TO lt_html.
     APPEND `                    try { reqId = JSON.parse(e.data).id; } catch(e2) {}` TO lt_html.
     APPEND `                    if (reqId) {` TO lt_html.
-    APPEND `                        channel.send(JSON.stringify({` TO lt_html.
+    APPEND `                        await sendChunked(channel, {` TO lt_html.
     APPEND `                            id: reqId,` TO lt_html.
     APPEND `                            status: 500,` TO lt_html.
     APPEND `                            headers: {},` TO lt_html.
     APPEND `                            body: btoa("Proxy Error: " + err.message)` TO lt_html.
-    APPEND `                        }));` TO lt_html.
+    APPEND `                        });` TO lt_html.
     APPEND `                    }` TO lt_html.
     APPEND `                }` TO lt_html.
     APPEND `            };` TO lt_html.
+    APPEND `        }` TO lt_html.
+    APPEND `` TO lt_html.
+    APPEND `        async function sendChunked(channel, msgObj) {` TO lt_html.
+    APPEND `            const fullMsg = JSON.stringify(msgObj);` TO lt_html.
+    APPEND `            const chunkSize = 8192;` TO lt_html.
+    APPEND `            const totalChunks = Math.ceil(fullMsg.length / chunkSize);` TO lt_html.
+    APPEND `            for (let i = 0; i < totalChunks; i++) {` TO lt_html.
+    APPEND `                while (channel.bufferedAmount > 8192) {` TO lt_html.
+    APPEND `                    await new Promise(r => setTimeout(r, 50));` TO lt_html.
+    APPEND `                }` TO lt_html.
+    APPEND `                const chunkData = fullMsg.substr(i * chunkSize, chunkSize);` TO lt_html.
+    APPEND `                channel.send(JSON.stringify({` TO lt_html.
+    APPEND `                    type: 'chunk',` TO lt_html.
+    APPEND `                    id: msgObj.id,` TO lt_html.
+    APPEND `                    chunk: chunkData,` TO lt_html.
+    APPEND `                    index: i,` TO lt_html.
+    APPEND `                    total: totalChunks` TO lt_html.
+    APPEND `                }));` TO lt_html.
+    APPEND `            }` TO lt_html.
     APPEND `        }` TO lt_html.
     APPEND `` TO lt_html.
     APPEND `        function copyAnswer() {` TO lt_html.
