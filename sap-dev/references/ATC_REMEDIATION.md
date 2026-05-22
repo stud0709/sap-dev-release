@@ -5,7 +5,7 @@ This document formalizes the autonomous workflow for resolving ABAP Test Cockpit
 When an AI Agent is tasked with an ATC Remediation run, it MUST strictly adhere to the following deterministic lock-and-resolve workflow:
 
 ## 1. Sandbox Initialization
-Constrain your edits exclusively to the local workspace to draft and test your code refactoring. Always verify if the system has write-authorization enabled via the backend system settings before assuming deployment mechanics are available.
+Constrain your edits exclusively to the local workspace to draft and test your code refactoring. Always respect the dynamic Object Guard permissions; if write access is denied during deployment, use the `sap_request_object_permissions` tool.
 
 - **Unified Staging**: All structural checkouts are staged exactly at: `./src/<system_id>/`.
 - **CRITICAL DISTINCTION**: Treat this specific folder as a formal deployment staging area that must be permanently preserved within `./src/`. Exempt this directory from all general "Workspace Sanitization" routines.
@@ -34,6 +34,6 @@ To guarantee structurally sound codebase patches for the batch, you MUST strictl
    - **Priority 4: Escalation (`REVIEW_REQUIRED`)**: If the finding involves high-risk complex logic changes (e.g. method signature changes with many dependencies, large refactoring, etc.), use this status.
 
 ## 4. Deployment Handoff & Matrix Closure
-Depending on the system settings, write operations onto SAP may be disabled. In those cases, your official task ends with preparing the deployment package for the human owner. If writes are enabled, use `sap_push_source` to update the backend directly.
+Depending on the active Object Guard whitelist, direct write operations onto SAP may be denied. If `sap_push_source` throws an `UNAUTHORIZED` lock and permission cannot be obtained, your official task ends with preparing the deployment package for the human owner. If writes are permitted, use `sap_push_source` to update the backend directly.
 - Explicitly execute `sap_update_atc_status` locally over `sap-bridge`. Mark the successfully parsed finding metrics as `REFACTORED` internally inside the SQLite Vault.
 - Instruct the Human user formally indicating your local scripts within the `./src/<system_id>/` folder are structurally compliant, signed-off offline, and ready for a physical manual push out to their proprietary SAP deployment pipelines.

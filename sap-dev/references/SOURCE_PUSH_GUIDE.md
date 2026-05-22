@@ -7,14 +7,7 @@ description: Agent reference for the SAP source push/lock/version lifecycle
 
 This document covers the workflow for safely modifying SAP ABAP source code via the sap-bridge MCP tools.
 
-## Key Constraint
-
-> The agent **cannot activate** objects. All pushes create **inactive versions** only. The user controls activation externally via SE80/Eclipse.
-
 ## 1. Fetch for Editing
-
-> [!WARNING]
-> On write-enabled systems, every new editing iteration should begin with a fetch of the latest version. If you edit a pre-existing local source file first, and the live code has changed, you will hit a `STALE_BASELINE` ETag collision at push time, which forces you to re-fetch and potentially lose your local edits.
 
 Use `sap_fetch_source` with `for_editing=true` to stage source code for modification:
 
@@ -27,11 +20,13 @@ sap_fetch_source(
 ```
 
 This will:
-- **Check write permission** — fails immediately with `WRITE_DISABLED` if writes are not enabled
 - Write the source to `./src/<system_id>/<object_name>.abap`
-- Record a **baseline version** (version 0) with the backend ETag in SQLite
+- Record a **baseline version** (e.g. version 0) with the backend ETag in SQLite
 - Return the `file_path` for immediate editing
 - **No line numbers** are injected (clean ABAP syntax)
+
+> [!TIP]
+> **Draft Protection:** If you already have an unpushed local draft (a modified file in `./src/`) and you run `sap_fetch_source(for_editing=true)` again, the tool will automatically archive your local draft as a `LOCAL_DRAFT` version in SQLite before overwriting the file with the fresh backend code. You can then use `sap_diff_versions` to recover your work. (Note: Diff metrics are fully normalized, so whitespace/CRLF formatting variations are ignored).
 
 Without `for_editing`, source goes to `./tmp/` via spillover (read-only inspection).
 
@@ -47,17 +42,17 @@ sap_push_source(
 ```
 
 The tool executes this pipeline atomically:
-1. **Permission check** — verifies writes are enabled for this system (Web Dashboard toggle)
+1. **Permission check** — verifies the object matches the active Object Guard whitelist
 2. **ETag pre-flight** — compares baseline ETag against live backend. Fails if stale.
 3. **LOCK** — acquires an enqueue lock (`_action=LOCK&accessMode=MODIFY`)
 4. **Transport check** — see Section 3
 5. **PUT** — writes source as inactive version
-6. **Version capture** — stores pushed source + new ETag in SQLite
+6. **Version capture** — stores pushed source + new ETag in SQLite as a `PUSH` event. *(Note: Upon successful `sap_activate_object`, this event string is mutated to `ACTIVATION` in the timeline)*
 
 The response contains:
-- `lock_handle` — **you must pass this to `sap_unlock_source`**
 - `etag` — the new backend ETag after the push
 - `version` — the version number recorded
+- `lock_handle` — returned for diagnostic/logging purposes, but the object is automatically unlocked.
 
 ## 3. Transport Escalation
 
@@ -76,50 +71,46 @@ Then retry with `transport_request` parameter.
 
 ## 4. Diff Versions
 
-Compare any two stored versions, or compare local state against the live backend:
+Compare your local working draft against the live SAP backend, or compare historical versions:
 
 ```
 sap_diff_versions(
   object_uri: "/sap/bc/adt/programs/programs/zydzh_test",
-  from_version: 0,     # baseline
-  to_version: -1        # -1 = live backend
+  from_version: "draft",     # Reads local physical file
+  to_version: "active"       # Fetches live backend code
 )
 ```
+
+**Semantic Targets:**
+- `"draft"`: The local file in `./src/...` (Default for `from_version`)
+- `"active"`: Live SAP active code (Default for `to_version`)
+- `"inactive"`: Live SAP inactive code
+- `"-1"`, `"-2"`, etc.: Relative recent SQLite versions (e.g., `-1` is the absolute latest recorded SQLite version).
+- `"1"`, `"2"`, etc.: Exact SQLite version numbers.
 
 Returns a unified diff with line counts.
 
-## 5. Unlock
+## 5. Auto-Unlock
 
-After completing all edits and pushes, release the lock:
+The `sap_push_source` tool natively implements the full LOCK → PUT → UNLOCK lifecycle automatically upon success. You do not need to manually call any unlock tool after a successful push. 
 
-```
-sap_unlock_source(
-  object_uri: "/sap/bc/adt/programs/programs/zydzh_test",
-  lock_handle: "<from sap_push_source response>"
-)
-```
+## 6. Dictionary Objects (DDIC)
 
-The `lock_handle` is **mandatory** — it comes from the `sap_push_source` response. Do not lose it.
+Standard "source-based" tools (`sap_fetch_source`, `sap_push_source`, `sap_check_syntax`, `sap_activate_object`) seamlessly support dictionary objects such as Database Tables (`TABL` / `TABL/DT`).
+- **Unified Pipeline:** They share the exact same version control, ETag staleness, and auto-unlock behaviors as `CLAS` or `PROG`.
+- **Syntax Check:** Running `sap_check_syntax` against a `TABL` will natively trigger ADT syntax validations (skipping the ABAP linter), correctly surfacing standard DDIC configuration warnings/errors (e.g., missing technical settings).
 
-## 6. Write Permission
+## 6. Zero-Trust Object Guard
 
-The user controls write access per-system via the SAP-Bridge Web Dashboard. If writes are disabled, `sap_push_source` will fail with `WRITE_DISABLED` before making any backend calls.
+Write access is governed by the SAP-Bridge **Object Guard**. Rather than a global enable/disable toggle, the user configures an explicit whitelist array of packages and prefixes (e.g. `Z*`, `Y*`) per connection. 
 
-**Default: writes are disabled.** The user must explicitly enable them.
+If an object does not match the active whitelist, `sap_push_source` will fail with an `UNAUTHORIZED` permission lock before making any backend calls. You can use the `sap_request_object_permissions` tool to ask the user to temporarily or permanently approve access to the blocked object.
 
 ## 7. File Layout
 
 ```
 ./src/<system_id>/
   ├── <object_name>.abap          # Active editing file (for_editing=true)
-  ├── <object_name>_v0.abap       # Version 0: baseline (FETCH)
-  ├── <object_name>_v1.abap       # Version 1: first push
-  └── <object_name>_v2.abap       # Version 2: second push
 ```
 
-## Constraints
 
-- **No activation** — the agent cannot activate objects
-- **No transport creation** — the agent cannot create transport requests
-- **Inactive saves only** — all pushes create inactive versions
-- **Sequential locking** — lock one object at a time, push, then proceed to next

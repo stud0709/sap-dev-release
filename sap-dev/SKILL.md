@@ -10,19 +10,16 @@ This skill grants you the ability to interact with the SAP backend using standar
 ## 🛡️ Core System Constraints
 
 0. **Workspace Initialization**: If any SAP MCP tool returns a `WORKSPACE_UNINITIALIZED` error, you MUST immediately call `sap_set_workspace` and provide the absolute path to your active workspace folder. This establishes your execution context and unlocks all other tools.
-1. **Local Source of Truth**: You generate and edit ABAP code exclusively in the local `./src/` directory. Constrain your edits explicitly to the local workspace; because the `sap-bridge` enforces a strict Read-Only boundary, you rely exclusively on the offline synchronization model without autonomously generating SAP database objects.
-2. **Missing SAP Objects**: If `sap_check_syntax` returns `ADT System refused to process syntax check: Ressource does not exist` or `invalid URI`, the foundational Repository Object does not exist in the target system. Rely exclusively on exporting the generated code to `./src/`, strictly instruct the User to physically initialize the empty Repository Object in SAP GUI/Eclipse, and await their confirmation before re-evaluating.
-3. **Workspace Hygiene**: Always redirect generated assets to their correct structured endpoints. Place generated documentation into `./docs/` and generated ABAP files into `./src/`. For general temporary files, strictly use the `scratch/` directory provided by your AI environment. As a fallback, use the `./tmp/` directory at the project root.
-4. **Draft Staleness Pre-Flight**: On write-enabled systems, every new editing iteration should begin with a fetch of the latest version. You MUST execute `sap_fetch_source` (with `for_editing=true`) to pull the latest live code and establish a fresh ETag baseline *before* making any local modifications. If you edit a pre-existing local source file first, you risk losing your changes when a stale ETag collision forces a re-fetch at push time.
-5. **Tool Execution Limitations**: Rely exclusively on your built-in MCP tool capabilities (like `sap_start_atc_check`) to interact with the backend, as the IDE manages the `sap-bridge` Stdio connection automatically in the background.
+1. **Live Object Verification**: Always validate the exact name and interface of any SAP object (BAdI, Class, Function Module, Table) by querying the live SAP backend using `sap_search_objects` or `sap_fetch_source`. Base your architectural proposals strictly on the objects and structures you have actively retrieved and confirmed during the current session.
+2. **Workspace Hygiene**: Always redirect generated assets to their correct structured endpoints. Place generated documentation into `./docs/` and generated ABAP files into `./src/`. For general temporary files, strictly use the `scratch/` directory provided by your AI environment. As a fallback, use the `./tmp/` directory at the project root.
+3. **Draft Staleness Pre-Flight**: On write-enabled systems, every new editing iteration should begin with a fetch of the latest version. You MUST execute `sap_fetch_source` (with `for_editing=true`) to pull the latest live code and establish a fresh ETag baseline *before* making any local modifications. If you edit a pre-existing local source file first, you risk losing your changes when a stale ETag collision forces a re-fetch at push time.
+4. **Tool Execution Limitations**: Rely exclusively on your built-in MCP tool capabilities to interact with the backend, as the IDE manages the `sap-bridge` Stdio connection automatically in the background.
 
 ## 💻 ABAP Development Standards
-
-1. **Definition of Done**: When instructed to modify or generate ABAP code, you must first validate the proposed code's syntactical correctness via the native ADT pre-flight syntax check. A task is NOT done until the modified code cleanly passes all syntax checks and is successfully saved to the `./src/` folder.
-2. **Conceptual Validation**: When working on abstract logic, systematically confirm your reasoning by cross-referencing source code and data dependencies in the live SAP system using your tool suite to guarantee structural accuracy.
-3. **ABAP Coding Standards**: Strictly prioritize standard module-specific interfaces. Your interaction priority must always be: (1) New API Classes / BAdIs, (2) Function Modules / BAPIs, (3) Direct Table Access. **Avoid write-access to tables directly unless specifically permitted**, preferring standard APIs or customer namespace (`Z*` or `Y*`) operations if writes are enabled on the backend.
-4. **SQL Performance**: When writing OpenSQL, always prefer table `JOIN`s over cascaded single table access loops (e.g., executing `SELECT` from Table A, then looping to execute subsequent `SELECT`s from Table B avoiding `FOR ALL ENTRIES` when joins suffice).
-5. **Modern ABAP Language**: Always utilize modern ABAP backend features appropriately (e.g., inline declarations `DATA(...)`, constructor operators `VALUE #()`, `REDUCE`, functional table expressions `itab[ ... ]`, and string templates `|...|`) rather than falling back on legacy NetWeaver procedural constructs.
+1. **Definition of Done**: When instructed to modify or generate ABAP code, you must first validate the proposed code's syntactical correctness via the native ADT pre-flight syntax check. A task is NOT done until the modified code cleanly passes all syntax checks.
+2. **Missing SAP Objects**: If `sap_check_syntax` returns `ADT System refused to process syntax check: Ressource does not exist` or `invalid URI`, the foundational Repository Object does not exist in the target system. Rely exclusively on exporting the generated code to `./src/`, strictly instruct the User to physically initialize the empty Repository Object in SAP GUI/Eclipse, and await their confirmation before re-evaluating.
+3. **Modern ABAP Language**: Always utilize modern ABAP backend features appropriately (e.g., inline declarations `DATA(...)`, constructor operators `VALUE #()`, `REDUCE`, functional table expressions `itab[ ... ]`, and string templates `|...|`) rather than falling back on legacy NetWeaver procedural constructs.
+4. **Pay Attention To Return Codes and Exceptions**: You must address return codes, exceptions, `BAPIRET` messages and the like returned by subroutines.
 
 ## ⚙️ Tool Invocation Mechanics
 
@@ -30,13 +27,9 @@ For detailed parameter values, structural node mappings, and payload handling (i
 
 For exact JSON return schemas of complex tools (like `sap_get_object_outline` or `sap_fetch_ddic`), read `[MCP_SCHEMAS.md](./references/MCP_SCHEMAS.md)`.
 
-## ATC Auto-Remediation Workflow
-
 When tasked with pulling diagnostics from the Autonomous Test Cockpit (`sap_fetch_atc_queue`), you MUST strictly adhere to the designated procedural matrix outlined in the sub-document: `[ATC_REMEDIATION.md](./references/ATC_REMEDIATION.md)`.
 
-## 🐞 Autonomous Debugging Protocol
-
-When tasked with debugging ABAP source code using the SAP Bridge, you MUST strictly adhere to the designated procedural matrix outlined in the sub-document: `[MCP_DEBUGGER_GUIDE.md](./references/MCP_DEBUGGER_GUIDE.md)`. This guide outlines the mandatory 3-stage lifecycle to prevent global backend deadlocks.
+For debugging ABAP source code using the SAP Bridge, you MUST strictly adhere to the designated procedural matrix outlined in the sub-document: `[MCP_DEBUGGER_GUIDE.md](./references/MCP_DEBUGGER_GUIDE.md)`. This guide outlines the mandatory 3-stage lifecycle to prevent global backend deadlocks.
 
 ## 🚨 Error Handling & Workarounds
 
