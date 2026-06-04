@@ -38,14 +38,36 @@ When extracting context boundaries (whether via ATC URIs, manual documentation, 
      2. Extract the exact method lines from the spilled `.abap` file using `sap_ast_query` (with `target_node_type="MethodImplementation"`).
      3. Mutate the method locally, then inject the updated code back into the spilled file using `sap_ast_replace`.
      4. Push the mutated massive file back to SAP by calling `sap_push_source` with `source_file_path` pointing to the spilled `./tmp/` file.
-5. **ADT Object Structure & Source Fetching Mechanics**:
-   - **Supported Objects**: `sap_get_object_outline` natively supports querying both complex structural containers (e.g., `CLAS`, `PROG`, `FUGR`) and atomic dictionary objects (e.g., `DTEL`, `DOMA`, `TABL`). Always refer to the explicit `enum` array exposed on the `sap_get_object_outline` tool schema for the exhaustive list of supported object types. However, note that individual Function Modules (`FUNC`) are NOT supported by the outline endpoint; you must fetch them directly.
-   - **CDS Views (`DDLS`)**: `sap_get_object_outline` natively supports architectural dependency graphing for CDS objects. It will return a highly detailed forward dependency tree mapping the underlying SQL abstractions, relationships, and functions built into the view.
-   - **Function Groups (FUGR)**: Function Groups are containers. You cannot use `sap_fetch_source` directly on a Function Group's `source/main` URI because it doesn't represent a linear source file. You MUST use `sap_get_object_outline` on the Function Group to discover its specific Include files and Function Modules, and then call `sap_fetch_source` on those specific child URIs.
-   - **Function Modules (FUNC / FUGR/FF)**: Unlike GUI-based transactions (SE37), you can programmatically edit a Function Module's signature (Parameters, Exceptions) via text. Use `sap_fetch_source` to retrieve the module's source; the payload will include pseudo-ABAP blocks (`IMPORTING`, `EXPORTING`, `TABLES`, `CHANGING`, `EXCEPTIONS`) injected directly below the `FUNCTION <NAME>.` statement. You can structurally mutate these blocks and execute `sap_push_source` with `object_type="FUGR/FF"` to permanently alter the backend signature. Note: Activating an altered Function Module often requires mass-activating its parent Function Group to regenerate the global interfaces.
+   - **Supported Objects**: `sap_get_object_outline` supports querying both complex structural containers (e.g., `CLAS`, `PROG`, `FUGR`) and atomic dictionary objects (e.g., `DTEL`, `DOMA`, `TABL`).
+   - **Dynamic Object Types**: The proxy caches valid object types in the background. Use the `sap_lookup_object_types` as a reference when you are unsure what to use. If the type is not listed, you can still use it (e.g., based on `sap_search_objects` results).
+   - **Navigating XML Structures**: If you call `sap_fetch_source` using a base URI and receive XML metadata instead of ABAP code, read the XML to locate the specific sub-link you need (e.g., `href="source/main"` for code, or `href=".../textelements"` for text symbols), and make a second `sap_fetch_source` call using that precise URI.
+   - **CDS Views (`DDLS`)**: `sap_get_object_outline` supports architectural dependency graphing for CDS objects. It will return a highly detailed forward dependency tree mapping the underlying SQL abstractions, relationships, and functions built into the view.
+   - **Function Groups (FUGR)**: Function Groups are containers. You cannot use `sap_fetch_source` directly on a Function Group's base URI because it doesn't represent a linear source file. You MUST use `sap_get_object_outline` on the Function Group to discover its specific Include files and Function Modules, and then call `sap_fetch_source` on those specific child URIs.
+   - **Function Modules (FUNC / FUGR/FF)**: Unlike GUI-based transactions (SE37), you can programmatically edit a Function Module's signature (Parameters, Exceptions) via text. Use `sap_fetch_source` to retrieve the module's source. If the module is newly created, it may contain a comment hinting at a template. You must replace this comment with the actual pseudo-ABAP signature block injected directly below the `FUNCTION <NAME>.` statement, using this exact syntax:
+     ```abap
+     IMPORTING
+       VALUE(IM_P1) TYPE type1 OPTIONAL
+       VALUE(IM_P2) TYPE type2 DEFAULT def_value
+     EXPORTING
+       EX_P1        TYPE REF TO STRING
+     CHANGING
+       CH_1         TYPE ANY
+     TABLES
+       TAB_P1       LIKE structure_name
+       TAB_P2       TYPE tab_type
+     RAISING
+       CX_SY_ZERODIVIDE 
+       RESUMABLE(CX_SY_ASSIGN_CAST_ERROR)
+     ```
+     You can structurally mutate these blocks and execute `sap_push_source` with `object_type="FUGR/FF"` to permanently alter the backend signature. Note: Activating an altered Function Module often requires mass-activating its parent Function Group to regenerate the global interfaces.
 6. **Fetch and Diff Workflows**: 
+   - Before invoking tools that require `system_id` and `sap_client`, you should call `sap_bridge_status` to safely discover the correct connected backend targets. This prevents cross-system pollution.
    - `sap_fetch_source` with `for_editing=true` is purely a local staging mechanism that writes to `./src/` and safely archives unpushed drafts. It does **not** check for write permissions; write permissions are only enforced when attempting to push.
    - When using `sap_diff_versions`, prefer semantic string targets: `"draft"` (local physical file), `"active"` / `"inactive"` (live backend states), or `"-1"` (latest recorded SQLite version).
+7. **Raw HTTP Requests (`sap_execute_request`)**:
+   - The `sap_execute_request` tool provides a raw sandbox for probing ADT endpoints. 
+   - **CRITICAL**: The ADT backend is notoriously strict about HTTP Headers (e.g. `Accept: application/atomsvc+xml` or `Content-Type`). When using `sap_execute_request`, you MUST pass headers like `Accept` and `Content-Type` using the **top-level string parameters** (`accept` and `content_type`), NOT nested inside a JSON array or dictionary parameter. 
+   - *Example*: `sap_execute_request(uri="/sap/bc/adt/discovery", accept="application/atomsvc+xml")`
 ## 🛡️ Zero-Trust Permissions & Sandbox Handshakes
 
 To guarantee structural safety, all structural execution pathways (pushing code, activating objects, calling APIs) are gated behind explicit UI approval mechanisms in the SAP-Bridge Web Dashboard. If a tool fails because of permission locks (`UNAUTHORIZED`), a request is added to the user's dashboard queue. Stop and instruct the user to approve the pending items in their SAP-Bridge Dashboard:

@@ -2,6 +2,10 @@
 
 The `sap-bridge` provides a programmatic SAP ABAP debugger capable of deep backend memory expansion. However, because standard SAP ADT breakpoints globally lock work processes, the agent MUST strictly follow the 3-Stage Autonomous Lifecycle.
 
+## 🧠 Cognitive Directives (Forced Reflection)
+If you are currently engaged in an active debugging session, you MUST begin every internal `<thought>` block by explicitly stating:
+"Session Active: Have I called `sap_debug_cleanup` yet? I MUST NOT conclude this task or exit without executing it to release the backend locks."
+
 
 ## Stage 1: Setup (`sap_debug_sync_external_breakpoints`)
 You must begin any debugging session by initializing physical external breakpoints on the backend before execution occurs.
