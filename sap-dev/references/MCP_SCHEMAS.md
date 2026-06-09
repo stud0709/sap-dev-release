@@ -2,7 +2,10 @@
 
 This document contains the structural JSON schemas for complex MCP tools. When invoking these tools, expect the returned string payload to strictly adhere to these shapes.
 
-## sap_get_object_outline
+## sap_explore_object
+This is the Omni-Tool for semantic extraction. The returned JSON structure mutates depending on the target object.
+
+### Class/Interface/Program
 Used to extract the semantic breakdown of an ABAP object (attributes, methods, types) without reading the full source code.
 
 ```json
@@ -36,11 +39,43 @@ Used to extract the semantic breakdown of an ABAP object (attributes, methods, t
       "exceptions": [],
       "description": "Executes the main routine"
     }
-  ]
+  ],
+  "type_hierarchy": {
+    "Entries": [
+      {
+        "Name": "ZCL_EXAMPLE",
+        "Type": "CLAS/OC",
+        "HasDefOrImpl": true,
+        "IsFinal": true,
+        "IsAbstract": false
+      }
+    ]
+  }
 }
 ```
 
-## sap_fetch_ddic
+### BAdIs / Enhancement Spots
+Returns the BAdI ecosystem chain mapping when passing `object_type` as `SXSD` or `ENSC`.
+
+```json
+[
+  {
+    "type": "ENSC",
+    "name": "/SCWM/ESI",
+    "description": "BAdI Expressdienstabwicklung",
+    "interface": "/SCWM/IF_EX_ESI",
+    "fallback_class": "/SCWM/CL_DEF_IM_ESI",
+    "badi_definitions": [
+      {
+        "name": "BADI_DEF",
+        "interface": "/SCWM/IF_EX_ESI"
+      }
+    ]
+  }
+]
+```
+
+### DDIC / Tables
 Used to extract flat metadata representations of Database Tables, Structures, and Views.
 
 ```json
@@ -87,7 +122,7 @@ Maps internal structure dependencies inside an ABAP object via offline AST trave
 }
 ```
 
-## sap_search_objects
+### Search Fallback
 Executes wildcard lookups and returns an array of object references.
 
 ```json

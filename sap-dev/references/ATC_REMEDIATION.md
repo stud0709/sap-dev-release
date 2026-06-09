@@ -34,7 +34,7 @@ When a **Snippet Worker** is invoked for its isolated chunk, it MUST strictly en
 
 1. **Quick Fix First**: Always poll `sap_atc_quick_fix` (for ATC findings) or `sap_syntax_quick_fix` (for syntax errors) against the underlying `finding_uri`. If SAP provides an explicit system rewrite suggestion, aggressively use it.
 2. **Documentation Fetch**: Read SAP's official documentation via `sap_atc_documentation` using the numeric `finding_id` for explicit root-cause context.
-3. **DDIC & Where-Used Check**: If the finding implies dealing with database tables, key maps, or missing architectures, strictly rely on backend metadata verification via `sap_fetch_ddic` or `sap_where_used`.
+3. **DDIC & Where-Used Check**: If the finding implies dealing with database tables, key maps, or missing architectures, strictly rely on backend metadata verification via `sap_explore_object` or `sap_where_used`.
 4. **Syntax Verification**: Make your file modification. Then, pipe the resulting block through `sap_check_syntax` to structurally guarantee it compiles.
 5. **The Remediation Priority Hierarchy**: You must resolve findings by strictly descending through this decision tree:
    - **Priority 1: SAP Quick-Fix (`LOGIC_REWRITTEN`)**

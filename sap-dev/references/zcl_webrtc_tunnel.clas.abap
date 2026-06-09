@@ -7,7 +7,6 @@ CLASS zcl_webrtc_tunnel DEFINITION
     INTERFACES if_http_extension .
   PROTECTED SECTION.
   PRIVATE SECTION.
-    CONSTANTS lc_proxy_uuid TYPE string VALUE '5cbcdfbe-63be-4ebb-ade6-7b9765fd0e45'.
 ENDCLASS.
 
 CLASS zcl_webrtc_tunnel IMPLEMENTATION.
@@ -92,7 +91,6 @@ CLASS zcl_webrtc_tunnel IMPLEMENTATION.
     APPEND `                document.getElementById('generateBtn').disabled = false;` TO lt_html.
     APPEND `            }` TO lt_html.
     APPEND `        };` TO lt_html.
-    APPEND |        console.log("SAP Bridge WebRTC Proxy UUID: { lc_proxy_uuid }");| TO lt_html.
     APPEND `` TO lt_html.
     APPEND `        async function startConnection() {` TO lt_html.
     APPEND `            try {` TO lt_html.
