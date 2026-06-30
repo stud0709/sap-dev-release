@@ -13,6 +13,7 @@ Use `sap_fetch_source` with `for_editing=true` to stage source code for modifica
 
 ```
 sap_fetch_source(
+  workspace_dir: "c:/Users/YuriyDzhenyeyev/git/sap-dev2",
   object_name: "Z_TEST",
   object_type: "PROG",
   for_editing: true
@@ -20,7 +21,7 @@ sap_fetch_source(
 ```
 
 This will:
-- Write the source to `./src/<system_id>/<object_name>.abap`
+- Write the source to `./src/<system_alias>/<object_name>.abap`
 - Record a **baseline version** (e.g. version 0) with the backend ETag in SQLite
 - Return the `file_path` for immediate editing
 - **No line numbers** are injected (clean ABAP syntax)
@@ -36,6 +37,7 @@ After editing the local file, push it back:
 
 ```
 sap_push_source(
+  workspace_dir: "c:/Users/YuriyDzhenyeyev/git/sap-dev2",
   object_uri: "/sap/bc/adt/programs/programs/z_test",
   source_file_path: "<absolute_path_to_edited_file>"
 )
@@ -75,6 +77,7 @@ Compare your local working draft against the live SAP backend, or compare histor
 
 ```
 sap_diff_versions(
+  workspace_dir: "c:/Users/YuriyDzhenyeyev/git/sap-dev2",
   object_uri: "/sap/bc/adt/programs/programs/zydzh_test",
   from_version: "draft",     # Reads local physical file
   to_version: "active"       # Fetches live backend code
@@ -94,23 +97,63 @@ Returns a unified diff with line counts.
 
 The `sap_push_source` tool natively implements the full LOCK → PUT → UNLOCK lifecycle automatically upon success. You do not need to manually call any unlock tool after a successful push. 
 
-## 6. Dictionary Objects (DDIC)
+## 6. Creating New Objects (Lifecycle & Sequence)
 
-Standard "source-based" tools (`sap_fetch_source`, `sap_push_source`, `sap_check_syntax`, `sap_activate_object`) seamlessly support dictionary objects such as Database Tables (`TABL` / `TABL/DT`).
-- **Unified Pipeline:** They share the exact same version control, ETag staleness, and auto-unlock behaviors as `CLAS` or `PROG`.
-- **Syntax Check:** Running `sap_check_syntax` against a `TABL` will natively trigger ADT syntax validations (skipping the ABAP linter), correctly surfacing standard DDIC configuration warnings/errors (e.g., missing technical settings).
+When creating new dictionary objects (e.g. `DTEL`, `TABL`, `TTYP`) or code-based repository objects (e.g. `CLAS`, `PROG`), follow this sequence to ensure the Object Guard resolves the correct package (avoiding `$TMP`) and whitelists access properly:
 
-## 6. Zero-Trust Object Guard
+1. **Retrieve the XML Creation Template**:
+   Call the `sap_get_creation_template` tool with the target object details. For DDIC objects, specify a `reference_entity` (such as `MANDT` for `DTEL` or `BAPIRET2` for `TABL`) to fetch a patch-compatible, clean template from the live backend:
+   ```
+   sap_get_creation_template(
+     workspace_dir: "c:/Users/YuriyDzhenyeyev/git/sap-dev2",
+     object_name: "ZBUI_MSB_APPL",
+     object_type: "DTEL",
+     package: "$MSB_COMPAT",
+     reference_entity: "MANDT"
+   )
+   ```
+   *Note: For code objects (`CLAS`, `INTF`, `PROG`, `FUGR`), the tool returns a standard minimal offline XML template.*
+
+2. **Save the Template Locally**:
+   Write the returned XML content to the workspace path:
+   - For **DDIC** objects, write directly to: `./src/<system_alias>/<object_name>.<type>.xml` (e.g. `./src/TD1/zbui_msb_appl.dtel.xml`).
+   - For **Code** objects, write to: `./src/<system_alias>/metadata/<object_name>.<type>.xml` (e.g. `./src/TD1/metadata/zcl_my_class.clas.xml`).
+
+3. **Request Permissions**:
+   Call `sap_request_object_permissions` to prompt the user for approval. You can explicitly pass the target package in each request item. This allows you to request permissions for new objects *before* authoring and saving their XML templates locally:
+   ```json
+   sap_request_object_permissions(
+     workspace_dir: "c:/Users/YuriyDzhenyeyev/git/sap-dev2",
+     system_alias: "TD1",
+     requests: [
+       { "object_name": "ZBUI_MSB_APPL", "object_type": "DTEL", "package": "$MSB_COMPAT" }
+     ]
+   )
+   ```
+   If you omit the `package` parameter, the Object Guard will attempt to scan the local workspace for the staged XML metadata file to extract the target package automatically.
+   > [!IMPORTANT]
+   > **Metadata Dependency:** If the object does not exist on the backend and you do not specify a target `package` in the tool call, the local XML file must exist in the workspace, or the permission check will fail fast with a `LOCAL_METADATA_MISSING` error. This prevents the request from defaulting to `$TMP`.
+
+4. **Push & Instantiate**:
+   - For **DDIC** objects: Call `sap_push_source` passing your local XML file. The tool automatically detects the object is new, performs the creation POST with version set to `inactive` (avoiding backend assertion dumps), locks the object, saves the content (PUT), and unlocks.
+   - For **Code** objects: Call `sap_push_metadata` passing the local XML file to create the backend shell first, then call `sap_push_source` with the plain text ABAP code.
+
+5. **Activate**:
+   Call `sap_activate_object` to compile and activate the newly created entity.
+
+## 7. Zero-Trust Object Guard
 
 Write access is governed by the SAP-Bridge **Object Guard**. Rather than a global enable/disable toggle, the user configures an explicit whitelist array of packages and prefixes (e.g. `Z*`, `Y*`) per connection. 
 
 If an object does not match the active whitelist, `sap_push_source` will fail with an `UNAUTHORIZED` permission lock before making any backend calls. You can use the `sap_request_object_permissions` tool to ask the user to temporarily or permanently approve access to the blocked object.
 
-## 7. File Layout
+## 8. File Layout
 
 ```
-./src/<system_id>/
-  ├── <object_name>.abap          # Active editing file (for_editing=true)
+./src/<system_alias>/
+  ├── <object_name>.<type>.abap      # Active editing code file
+  └── metadata/
+        └── <object_name>.<type>.xml # Active editing metadata XML file (shell creation)
 ```
 
 

@@ -156,7 +156,7 @@ Retrieves the active proxy diagnostic state, binary build metadata, dashboard UR
     }
   ],
   "ide_id": "A1B2C3D4E5F678901234567890ABCDE1",
-  "sap_dashboard_url": "http://127.0.0.1:64160",
+  "sap_dashboard_url": "http://127.0.0.1:64160?workspace_dir=%2Fabsolute%2Fpath%2Fto%2Fworkspace",
   "terminal_id": "F1E2D3C4B5A678901234567890ABCDE1"
 }
 ```
@@ -257,4 +257,43 @@ Retrieves and parses ABAP Short Dumps (ST22). Below is the detailed mode (extrac
     }
   ]
 }
+```
+
+## sap_explore_odata_service
+Fetches a parsed representation of the OData metadata schema, organizing entity sets by name with their defined key fields and properties.
+
+```json
+{
+  "FormTemplateCollection": {
+    "keys": ["FormTemplateName", "Language"],
+    "properties": {
+      "FormTemplateName": "Edm.String (max: 30) [Required]",
+      "Language": "Edm.String (max: 2) [Required]",
+      "Description": "Edm.String (max: 80)"
+    }
+  }
+}
+```
+
+## sap_odata_call
+Executes structured OData operations. The returned output matches the stripped JSON representation of the target OData resource (without standard OData metadata/deferred wrappers or deep results envelopes).
+
+### Single Entity / Creation / Update Result
+```json
+{
+  "FormTemplateName": "ZZ1_PO",
+  "Language": "EN",
+  "Description": "Purchase Order Template"
+}
+```
+
+### Collection Query Result
+```json
+[
+  {
+    "FormTemplateName": "ZZ1_PO",
+    "Language": "EN",
+    "Description": "Purchase Order Template"
+  }
+]
 ```

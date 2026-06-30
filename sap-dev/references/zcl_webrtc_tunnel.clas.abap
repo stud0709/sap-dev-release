@@ -54,43 +54,51 @@ CLASS zcl_webrtc_tunnel IMPLEMENTATION.
     APPEND `    <script>` TO lt_html.
     APPEND |        const sapSystem = '{ sy-sysid }';| TO lt_html.
     APPEND |        const sapClient = '{ sy-mandt }';| TO lt_html.
-    APPEND `        const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });` TO lt_html.
+    APPEND `        let pc = null;` TO lt_html.
     APPEND `        let dataChannel = null;` TO lt_html.
     APPEND `` TO lt_html.
-    APPEND `        pc.ondatachannel = (event) => {` TO lt_html.
-    APPEND `            dataChannel = event.channel;` TO lt_html.
-    APPEND `            dataChannel.onopen = () => {` TO lt_html.
-    APPEND `                dataChannel.send(JSON.stringify({ type: 'handshake', systemId: sapSystem, client: sapClient }));` TO lt_html.
+    APPEND `        function initializePeerConnection() {` TO lt_html.
+    APPEND `            if (pc) {` TO lt_html.
+    APPEND `                try { pc.close(); } catch(e) {}` TO lt_html.
+    APPEND `            }` TO lt_html.
+    APPEND `            pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });` TO lt_html.
+    APPEND `            dataChannel = null;` TO lt_html.
+    APPEND `` TO lt_html.
+    APPEND `            pc.ondatachannel = (event) => {` TO lt_html.
+    APPEND `                dataChannel = event.channel;` TO lt_html.
+    APPEND `                dataChannel.onopen = () => {` TO lt_html.
+    APPEND `                    dataChannel.send(JSON.stringify({ type: 'handshake', systemId: sapSystem, client: sapClient }));` TO lt_html.
+    APPEND `                };` TO lt_html.
+    APPEND `                setupChannel(dataChannel);` TO lt_html.
     APPEND `            };` TO lt_html.
-    APPEND `            setupChannel(dataChannel);` TO lt_html.
-    APPEND `        };` TO lt_html.
     APPEND `` TO lt_html.
-    APPEND `        pc.oniceconnectionstatechange = () => {` TO lt_html.
-    APPEND `            const ui = document.getElementById('statusUI');` TO lt_html.
-    APPEND `            if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {` TO lt_html.
-    APPEND `                ui.className = 'status online';` TO lt_html.
-    APPEND `                ui.innerText = 'Status: Connected! Tunnel is active.';` TO lt_html.
-    APPEND `            } else if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'closed') {` TO lt_html.
-    APPEND `                ui.className = 'status offline';` TO lt_html.
-    APPEND `                ui.innerText = 'Status: Disconnected';` TO lt_html.
-    APPEND `            }` TO lt_html.
-    APPEND `        };` TO lt_html.
+    APPEND `            pc.oniceconnectionstatechange = () => {` TO lt_html.
+    APPEND `                const ui = document.getElementById('statusUI');` TO lt_html.
+    APPEND `                if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {` TO lt_html.
+    APPEND `                    ui.className = 'status online';` TO lt_html.
+    APPEND `                    ui.innerText = 'Status: Connected! Tunnel is active.';` TO lt_html.
+    APPEND `                } else if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'closed') {` TO lt_html.
+    APPEND `                    ui.className = 'status offline';` TO lt_html.
+    APPEND `                    ui.innerText = 'Status: Disconnected';` TO lt_html.
+    APPEND `                }` TO lt_html.
+    APPEND `            };` TO lt_html.
     APPEND `` TO lt_html.
-    APPEND `        pc.onconnectionstatechange = () => {` TO lt_html.
-    APPEND `            const ui = document.getElementById('statusUI');` TO lt_html.
-    APPEND `            if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed' || pc.connectionState === 'closed') {` TO lt_html.
-    APPEND `                ui.className = 'status offline';` TO lt_html.
-    APPEND `                ui.innerText = 'Status: Disconnected';` TO lt_html.
-    APPEND `            }` TO lt_html.
-    APPEND `        };` TO lt_html.
+    APPEND `            pc.onconnectionstatechange = () => {` TO lt_html.
+    APPEND `                const ui = document.getElementById('statusUI');` TO lt_html.
+    APPEND `                if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed' || pc.connectionState === 'closed') {` TO lt_html.
+    APPEND `                    ui.className = 'status offline';` TO lt_html.
+    APPEND `                    ui.innerText = 'Status: Disconnected';` TO lt_html.
+    APPEND `                }` TO lt_html.
+    APPEND `            };` TO lt_html.
     APPEND `` TO lt_html.
-    APPEND `        pc.onicecandidate = (event) => {` TO lt_html.
-    APPEND `            if (event.candidate === null) {` TO lt_html.
-    APPEND `                const answerStr = btoa(JSON.stringify(pc.localDescription));` TO lt_html.
-    APPEND `                document.getElementById('answerOutput').value = answerStr;` TO lt_html.
-    APPEND `                document.getElementById('generateBtn').disabled = false;` TO lt_html.
-    APPEND `            }` TO lt_html.
-    APPEND `        };` TO lt_html.
+    APPEND `            pc.onicecandidate = (event) => {` TO lt_html.
+    APPEND `                if (event.candidate === null) {` TO lt_html.
+    APPEND `                    const answerStr = btoa(JSON.stringify(pc.localDescription));` TO lt_html.
+    APPEND `                    document.getElementById('answerOutput').value = answerStr;` TO lt_html.
+    APPEND `                    document.getElementById('generateBtn').disabled = false;` TO lt_html.
+    APPEND `                }` TO lt_html.
+    APPEND `            };` TO lt_html.
+    APPEND `        }` TO lt_html.
     APPEND `` TO lt_html.
     APPEND `        async function startConnection() {` TO lt_html.
     APPEND `            try {` TO lt_html.
@@ -106,6 +114,8 @@ CLASS zcl_webrtc_tunnel IMPLEMENTATION.
     APPEND `                ` TO lt_html.
     APPEND `                document.getElementById('answerOutput').value = "Generating... Please wait (this can take ~15 seconds)...";` TO lt_html.
     APPEND `                document.getElementById('generateBtn').disabled = true;` TO lt_html.
+    APPEND `                ` TO lt_html.
+    APPEND `                initializePeerConnection();` TO lt_html.
     APPEND `                ` TO lt_html.
     APPEND `                await pc.setRemoteDescription(new RTCSessionDescription(wrapper.wrtc_desc));` TO lt_html.
     APPEND `                ` TO lt_html.
@@ -159,12 +169,13 @@ CLASS zcl_webrtc_tunnel IMPLEMENTATION.
     APPEND `                    res.headers.forEach((v, k) => outHeaders[k] = v);` TO lt_html.
     APPEND `                    ` TO lt_html.
     APPEND `                    const buffer = await res.arrayBuffer();` TO lt_html.
-    APPEND `                    let binary = '';` TO lt_html.
-    APPEND `                    const bytes = new Uint8Array(buffer);` TO lt_html.
-    APPEND `                    for (let i = 0; i < bytes.byteLength; i++) {` TO lt_html.
-    APPEND `                        binary += String.fromCharCode(bytes[i]);` TO lt_html.
-    APPEND `                    }` TO lt_html.
-    APPEND `                    const b64Body = btoa(binary);` TO lt_html.
+    APPEND `                    const b64Body = await new Promise((resolve) => {` TO lt_html.
+    APPEND `                        const reader = new FileReader();` TO lt_html.
+    APPEND `                        reader.onloadend = () => {` TO lt_html.
+    APPEND `                            resolve(reader.result.split(',')[1]);` TO lt_html.
+    APPEND `                        };` TO lt_html.
+    APPEND `                        reader.readAsDataURL(new Blob([buffer]));` TO lt_html.
+    APPEND `                    });` TO lt_html.
     APPEND `` TO lt_html.
     APPEND `                    await sendChunked(channel, {` TO lt_html.
     APPEND `                        id: req.id,` TO lt_html.
