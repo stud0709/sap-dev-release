@@ -1,0 +1,6 @@
+{
+  "name": "fugr-descriptions",
+  "description": "Function Group Module Descriptions Hook",
+  "can_handle": ["FUGR"],
+  "aspects": ["descriptions"]
+}

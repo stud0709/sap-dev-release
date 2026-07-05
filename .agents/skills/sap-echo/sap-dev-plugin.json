@@ -1,0 +1,4 @@
+{
+  "name": "SAP Echo",
+  "description": "Echos back RFC inputs using the guarded bridge."
+}
