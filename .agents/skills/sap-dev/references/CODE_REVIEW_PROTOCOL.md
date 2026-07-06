@@ -25,7 +25,8 @@ Evaluate the developer's source code draft against the following standard checkl
 ### B. Security & DB Best Practices
 *   **SQL Injection Prevention**: Verify that dynamic SQL uses appropriate sanitization and escapes. Ensure all parameters in SQL where clauses are properly typed.
 *   **Authority Checks**: Ensure appropriate `AUTHORITY-CHECK` statements exist before performing database reads or calls to critical functions.
-*   **Direct DB Access**: Minimize direct database mutations (e.g. `INSERT/UPDATE ztable`) unless the architecture spec explicitly whitelists it. Prefer SAP standard BAPIs.
+*   **Direct DB Access**: Prefer standard SAP BAPIs for mutating database tables. Verify that direct database writes (such as `INSERT` or `UPDATE`) are only utilized when explicitly requested by the architecture specification.
+*   **High-Level API Verification**: Verify that the code accesses complex frameworks (like classification, status management, or material master data) via standard APIs, BAPIs, and standard classes rather than direct table SELECTs (e.g. reading `AUSP`, `CABN`, `KLAH`, `JEST` directly) to ensure key formatting and conversions are executed correctly.
 
 ### C. Robustness & Error Handling
 *   **Return Codes**: Verify that the developer checks `sy-subrc` immediately after database operations or method calls.

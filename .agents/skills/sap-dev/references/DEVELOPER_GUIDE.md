@@ -72,6 +72,7 @@ When generating or modifying ABAP code, strictly prioritize modern backend synta
     DATA(lv_msg) = |Customer { ls_cust-name } registered successfully.|.
     ```
 4.  **Exceptions & Return Codes**: Always check and handle `sy-subrc`, class exceptions, and `BAPIRET` return parameters.
+5.  **High-Level API Access (BAPIs, classes, function modules)**: Access SAP business data and complex configurations (such as classification, status management, or organizational trees) via standard high-level APIs, BAPIs (e.g., `BAPI_OBJCL_GETDETAIL` for classifications), or official handler classes. These standard APIs automatically manage conversion exits, internal formatting, buffering, and security checks, keeping data access robust and maintainable.
 
 ---
 

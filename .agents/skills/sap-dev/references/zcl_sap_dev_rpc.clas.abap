@@ -80,6 +80,11 @@ CLASS zcl_sap_dev_rpc DEFINITION
         iv_payload     TYPE string
       RETURNING
         VALUE(rv_json) TYPE string.
+    METHODS handle_sap_search_src_code
+      IMPORTING
+        iv_payload     TYPE string
+      RETURNING
+        VALUE(rv_json) TYPE string.
     METHODS get_object_handler
       IMPORTING
         iv_object_type    TYPE string
@@ -135,6 +140,8 @@ CLASS zcl_sap_dev_rpc IMPLEMENTATION.
             lv_response = handle_sap_fetch_metadata( lv_body ).
           WHEN 'sap_fetch_source'.
             lv_response = handle_sap_fetch_source_rpc( lv_body ).
+          WHEN 'sap_search_source_code'.
+            lv_response = handle_sap_search_src_code( lv_body ).
           WHEN OTHERS.
             server->response->set_status( code = 400 reason = 'Bad Request' ).
             server->response->set_cdata( |Unknown or missing tool parameter: { ls_req-tool }| ).
@@ -1192,6 +1199,257 @@ CLASS zcl_sap_dev_rpc IMPLEMENTATION.
     ELSE.
       rv_json = |\{"error": "Failed to resolve handler for object type { ls_payload-object_type }"\}|.
     ENDIF.
+  ENDMETHOD.
+
+  METHOD handle_sap_search_src_code.
+    TYPES: BEGIN OF ty_payload,
+             query        TYPE string,
+             package_name TYPE string,
+             object_type  TYPE string,
+             object_name  TYPE string,
+             max_results  TYPE i,
+           END OF ty_payload.
+    DATA: ls_payload TYPE ty_payload.
+
+    /ui2/cl_json=>deserialize( EXPORTING json = iv_payload CHANGING data = ls_payload ).
+
+    " Defaults
+    IF ls_payload-max_results <= 0.
+      ls_payload-max_results = 100.
+    ENDIF.
+
+    " Convert search scopes to uppercase
+    TRANSLATE ls_payload-package_name TO UPPER CASE.
+    TRANSLATE ls_payload-object_type TO UPPER CASE.
+    TRANSLATE ls_payload-object_name TO UPPER CASE.
+
+    DATA: lt_programs TYPE TABLE OF program,
+          lv_prog     TYPE program.
+
+    " Ranges for selection
+    DATA: lr_object_type TYPE RANGE OF tadir-object,
+          lr_obj_name    TYPE RANGE OF tadir-obj_name,
+          lr_devclass    TYPE RANGE OF tadir-devclass.
+
+    DATA: ls_range_ot LIKE LINE OF lr_object_type,
+          ls_range_on LIKE LINE OF lr_obj_name,
+          ls_range_dc LIKE LINE OF lr_devclass.
+
+    IF ls_payload-object_type IS NOT INITIAL.
+      ls_range_ot-sign   = 'I'.
+      ls_range_ot-option = 'EQ'.
+      ls_range_ot-low    = ls_payload-object_type.
+      APPEND ls_range_ot TO lr_object_type.
+    ENDIF.
+
+    IF ls_payload-object_name IS NOT INITIAL.
+      ls_range_on-sign   = 'I'.
+      IF ls_payload-object_name CS '*'.
+        ls_range_on-option = 'CP'.
+      ELSE.
+        ls_range_on-option = 'EQ'.
+      ENDIF.
+      ls_range_on-low    = ls_payload-object_name.
+      APPEND ls_range_on TO lr_obj_name.
+    ELSE.
+      " If no name specified, scan custom objects only (for safety and speed)
+      ls_range_on-sign   = 'I'.
+      ls_range_on-option = 'CP'.
+      ls_range_on-low    = 'Z*'.
+      APPEND ls_range_on TO lr_obj_name.
+      ls_range_on-low    = 'Y*'.
+      APPEND ls_range_on TO lr_obj_name.
+    ENDIF.
+
+    IF ls_payload-package_name IS NOT INITIAL.
+      ls_range_dc-sign   = 'I'.
+      ls_range_dc-option = 'EQ'.
+      ls_range_dc-low    = ls_payload-package_name.
+      APPEND ls_range_dc TO lr_devclass.
+    ENDIF.
+
+    " Select from TADIR (Only local/custom objects)
+    DATA: lt_tadir TYPE TABLE OF tadir.
+    SELECT pgmid object obj_name devclass
+      FROM tadir
+      INTO CORRESPONDING FIELDS OF TABLE lt_tadir
+      WHERE pgmid = 'R3TR'
+        AND object IN lr_object_type
+        AND obj_name IN lr_obj_name
+        AND devclass IN lr_devclass.
+
+    DATA: lt_main_programs TYPE TABLE OF program.
+
+    LOOP AT lt_tadir INTO DATA(ls_tadir).
+      CASE ls_tadir-object.
+        WHEN 'PROG'.
+          lv_prog = ls_tadir-obj_name.
+          APPEND lv_prog TO lt_main_programs.
+        WHEN 'CLAS'.
+          DATA: lv_clsname TYPE seoclsname.
+          lv_clsname = ls_tadir-obj_name.
+          lv_prog = cl_oo_classname_service=>get_classpool_name( lv_clsname ).
+          IF lv_prog IS NOT INITIAL.
+            APPEND lv_prog TO lt_main_programs.
+          ENDIF.
+        WHEN 'INTF'.
+          DATA: lv_intfname TYPE seoclsname.
+          lv_intfname = ls_tadir-obj_name.
+          lv_prog = cl_oo_classname_service=>get_interfacepool_name( lv_intfname ).
+          IF lv_prog IS NOT INITIAL.
+            APPEND lv_prog TO lt_main_programs.
+          ENDIF.
+        WHEN 'FUGR'.
+          DATA: lv_fgroup TYPE rs38l-area.
+          lv_fgroup = ls_tadir-obj_name.
+          CLEAR lv_prog.
+          CALL FUNCTION 'FUNCTION_INCLUDE_CONCATENATE'
+            CHANGING
+              program       = lv_prog
+              complete_area = lv_fgroup
+            EXCEPTIONS
+              OTHERS        = 1.
+          IF sy-subrc = 0 AND lv_prog IS NOT INITIAL.
+            APPEND lv_prog TO lt_main_programs.
+          ENDIF.
+      ENDCASE.
+    ENDLOOP.
+
+    SORT lt_main_programs.
+    DELETE ADJACENT DUPLICATES FROM lt_main_programs.
+
+    " Recursively resolve all includes
+    APPEND LINES OF lt_main_programs TO lt_programs.
+    LOOP AT lt_main_programs INTO lv_prog.
+      DATA: lt_inc TYPE STANDARD TABLE OF program.
+      CALL FUNCTION 'RS_GET_ALL_INCLUDES'
+        EXPORTING
+          program    = lv_prog
+        TABLES
+          includetab = lt_inc
+        EXCEPTIONS
+          OTHERS     = 1.
+      IF sy-subrc = 0.
+        APPEND LINES OF lt_inc TO lt_programs.
+      ENDIF.
+    ENDLOOP.
+
+    SORT lt_programs.
+    DELETE ADJACENT DUPLICATES FROM lt_programs.
+
+    " Clean technical meta-includes (match RS_ABAP_SOURCE_SCAN behavior)
+    DELETE lt_programs WHERE table_line+31(1) = 'T'
+                          OR table_line+30(2) = 'CS'
+                          OR table_line+30(2) = 'CP'
+                          OR table_line+30(2) = 'IP'.
+
+    " Structure to hold matches
+    TYPES: BEGIN OF ty_text_line,
+             content TYPE string,
+             uri     TYPE string,
+           END OF ty_text_line.
+    TYPES: BEGIN OF ty_match_object,
+             parent_uri  TYPE string,
+             text_query  TYPE string,
+             uri         TYPE string,
+             main_object TYPE ty_payload,
+             lines       TYPE STANDARD TABLE OF ty_text_line WITH DEFAULT KEY,
+           END OF ty_match_object.
+    TYPES: BEGIN OF ty_results,
+             number_of_results       TYPE i,
+             query_time_millis       TYPE i,
+             total_number_of_results TYPE i,
+             objects                 TYPE STANDARD TABLE OF ty_match_object WITH DEFAULT KEY,
+           END OF ty_results.
+
+    DATA: ls_results TYPE ty_results,
+          ls_match   TYPE ty_match_object,
+          ls_line    TYPE ty_text_line.
+
+    DATA: lt_source TYPE TABLE OF string,
+          lv_milli_start TYPE i,
+          lv_milli_end   TYPE i.
+
+    GET RUN TIME FIELD lv_milli_start.
+
+    DATA: lv_match_count TYPE i VALUE 0.
+
+    LOOP AT lt_programs INTO lv_prog.
+      IF lv_match_count >= ls_payload-max_results.
+        EXIT.
+      ENDIF.
+
+      CLEAR: lt_source.
+      READ REPORT lv_prog INTO lt_source.
+      IF sy-subrc <> 0.
+        CONTINUE.
+      ENDIF.
+
+      DATA: lt_find_results TYPE match_result_tab.
+      FIND ALL OCCURRENCES OF ls_payload-query IN TABLE lt_source
+        IGNORING CASE
+        RESULTS lt_find_results.
+
+      IF lt_find_results IS NOT INITIAL.
+        CLEAR: ls_match.
+        
+        " Map program name back to a readable ADT URI format
+        ls_match-parent_uri  = |/sap/bc/adt/programs/programs/{ lv_prog }|.
+        ls_match-text_query  = ls_payload-query.
+        ls_match-uri         = |/sap/bc/adt/programs/programs/{ lv_prog }|.
+
+        " Check classpool/interface name mapping to get main object
+        DATA: lv_obj_name TYPE string,
+              lv_obj_type TYPE string.
+        lv_obj_name = lv_prog.
+        lv_obj_type = 'PROG'.
+
+        IF lv_prog CS '=='.
+          " Might be class pool or interface
+          DATA: lv_possible_cls TYPE seoclsname.
+          lv_possible_cls = cl_oo_classname_service=>get_clsname_by_include( lv_prog ).
+          IF lv_possible_cls IS NOT INITIAL.
+            lv_obj_name = lv_possible_cls.
+            " Check if it is interface or class
+            SELECT SINGLE object FROM tadir INTO lv_obj_type
+              WHERE pgmid = 'R3TR' AND obj_name = lv_obj_name AND ( object = 'CLAS' OR object = 'INTF' ).
+            IF sy-subrc <> 0.
+              lv_obj_type = 'CLAS'.
+            ENDIF.
+          ENDIF.
+        ENDIF.
+
+        ls_match-main_object-object_name = lv_obj_name.
+        ls_match-main_object-object_type = lv_obj_type.
+
+        " Get package
+        SELECT SINGLE devclass FROM tadir INTO ls_match-main_object-package_name
+          WHERE pgmid = 'R3TR' AND object = lv_obj_type AND obj_name = lv_obj_name.
+
+        LOOP AT lt_find_results INTO DATA(ls_find).
+          IF lv_match_count >= ls_payload-max_results.
+            EXIT.
+          ENDIF.
+
+          READ TABLE lt_source INTO DATA(lv_line_content) INDEX ls_find-line.
+          IF sy-subrc = 0.
+            ls_line-content = lv_line_content.
+            ls_line-uri = |/sap/bc/adt/programs/programs/{ lv_prog }/source/main#start={ ls_find-line }|.
+            APPEND ls_line TO ls_match-lines.
+            lv_match_count = lv_match_count + 1.
+          ENDIF.
+        ENDLOOP.
+
+        APPEND ls_match TO ls_results-objects.
+      ENDIF.
+    ENDLOOP.
+
+    GET RUN TIME FIELD lv_milli_end.
+    ls_results-query_time_millis = ( lv_milli_end - lv_milli_start ) / 1000.
+    ls_results-number_of_results = lv_match_count.
+    ls_results-total_number_of_results = lv_match_count.
+
+    rv_json = /ui2/cl_json=>serialize( data = ls_results ).
   ENDMETHOD.
 
   METHOD get_object_handler.
