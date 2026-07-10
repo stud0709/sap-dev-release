@@ -165,6 +165,14 @@ CLASS zcl_webrtc_tunnel IMPLEMENTATION.
     APPEND `` TO lt_html.
     APPEND `                    const targetUrl = new URL(req.url).pathname + new URL(req.url).search;` TO lt_html.
     APPEND `                    const res = await fetch(targetUrl, fetchOpts);` TO lt_html.
+    APPEND `                    if (res.status === 400) {` TO lt_html.
+    APPEND `                        try {` TO lt_html.
+    APPEND `                            const text = (await res.clone().text()).toLowerCase();` TO lt_html.
+    APPEND `                            if (text.includes("session") && (text.includes("not found") || text.includes("expired") || text.includes("timed out") || text.includes("timeout"))) {` TO lt_html.
+    APPEND `                                await fetch('/sap/public/bc/icf/logoff?sap-client=' + sapClient);` TO lt_html.
+    APPEND `                            }` TO lt_html.
+    APPEND `                        } catch (e) {}` TO lt_html.
+    APPEND `                    }` TO lt_html.
     APPEND `                    const outHeaders = {};` TO lt_html.
     APPEND `                    res.headers.forEach((v, k) => outHeaders[k] = v);` TO lt_html.
     APPEND `                    ` TO lt_html.
