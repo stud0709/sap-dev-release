@@ -87,9 +87,10 @@ If `sap_fetch_source` spills a massive ABAP file into `./tmp/`, strictly use the
   You can structurally mutate these blocks and execute `sap_push_source` with `object_type="FUGR/FF"` to permanently alter the backend signature. Note: Activating an altered Function Module often requires mass-activating its parent Function Group to regenerate the global interfaces.
 
 ### Raw HTTP Requests
-- The `sap_execute_request` tool provides a raw sandbox for probing ADT endpoints. 
-- **CRITICAL**: The ADT backend is notoriously strict about HTTP Headers (e.g. `Accept: application/atomsvc+xml` or `Content-Type`). When using `sap_execute_request`, you MUST pass headers like `Accept` and `Content-Type` using the **top-level string parameters** (`accept` and `content_type`), NOT nested inside a JSON array or dictionary parameter. 
-- *Example*: `sap_execute_request(workspace_dir="c:/Users/YuriyDzhenyeyev/git/sap-dev2", uri="/sap/bc/adt/discovery", accept="application/atomsvc+xml")`
+*   The `sap_execute_request` tool provides a raw sandbox for probing ADT endpoints. 
+*   **ADT Headers Configuration**: The ADT backend is strict about HTTP Headers (e.g. `Accept: application/atomsvc+xml` or `Content-Type`). When using `sap_execute_request`, pass headers like `Accept` and `Content-Type` using the **top-level string parameters** (`accept` and `content_type`), keeping them distinct from nested JSON array or dictionary parameters. 
+*   *Example*: `sap_execute_request(workspace_dir="c:/Users/YuriyDzhenyeyev/git/sap-dev2", uri="/sap/bc/adt/discovery", accept="application/atomsvc+xml")`
+*   **Whitelist Authorization Recovery Flow**: When calling `sap_execute_request`, if the response indicates an `UNAUTHORIZED_ENDPOINT` error, immediately invoke the `sap_request_api_permissions` tool to queue the required REST endpoint and HTTP method in the user's Pending Intercepts queue. Direct the user to the Web UI dashboard to approve this pending request, and pause execution until they confirm the authorization.
 
 
 ## 🛠️ Object Creation Templates (`sap_get_creation_template`)

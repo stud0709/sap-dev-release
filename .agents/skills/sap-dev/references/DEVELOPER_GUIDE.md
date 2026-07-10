@@ -102,7 +102,57 @@ sap_simulate_snippet(
 
 ---
 
-## 🐞 5. Interactive Debugging Protocol
+## 5. 🧩 Surgical Editing of Massive Codebases & BAdI Implementations
+
+To minimize cognitive load, context-window token overhead, and potential syntax corruption when working with massive source files (e.g., files over 1000 lines) or implementing complex multi-method interfaces (e.g., BAdI implementations), leverage these specialized AST operations:
+
+### A. Implementing BAdI Interfaces (`sap_scaffold_interface`)
+Instead of manually reading interface definitions and drafting blank method templates, call the interface scaffolding tool:
+```json
+sap_scaffold_interface(
+  workspace_dir: "c:/Users/YuriyDzhenyeyev/git/sap-dev2",
+  interface_name: "IF_EX_BADI_MATERIAL_CHECK",
+  implementation_name: "ZCL_IM_MATERIAL_CHECK"
+)
+```
+*   This automatically resolves all methods and parameter signatures from the ADT backend, producing a syntactically correct empty class definition and implementation template in one step.
+
+### B. Modifying Massive Classes / Programs (`sap_ast_query` & `sap_ast_replace`)
+Avoid fetching and pushing the entire file when editing a single localized method in a huge monolith.
+1.  **Extract the Method Definition or Implementation**: Call `sap_ast_query` specifying the target node type and identifier to isolate and fetch only the section of interest:
+    ```json
+    sap_ast_query(
+      workspace_dir: "c:/Users/YuriyDzhenyeyev/git/sap-dev2",
+      object_uri: "/sap/bc/adt/oo/classes/zcl_large_monolith",
+      target_node_type: "MethodImplementation",
+      target_identifier: "PROCESS_INBOUND_PAYMENT"
+    )
+    ```
+2.  **Edit Locally**: Perform the coding changes specifically on the extracted snippet.
+3.  **Merge via AST Replace**: Call `sap_ast_replace` to safely inject the updated method text back into the source document without risking corruption to the surrounding code:
+    ```json
+    sap_ast_replace(
+      workspace_dir: "c:/Users/YuriyDzhenyeyev/git/sap-dev2",
+      file_path: "c:/Users/YuriyDzhenyeyev/git/sap-dev2/src/zcl_large_monolith.clas.abap",
+      target_node_type: "MethodImplementation",
+      target_identifier: "PROCESS_INBOUND_PAYMENT",
+      replacement_text: "...new ABAP code..."
+    )
+    ```
+
+### C. Mapping Architecture Dependencies (`sap_map_dependencies`)
+When tasked with refactoring a massive, unfamiliar ABAP file, first execute the dependency mapping tool:
+```json
+sap_map_dependencies(
+  workspace_dir: "c:/Users/YuriyDzhenyeyev/git/sap-dev2",
+  file_path: "c:/Users/YuriyDzhenyeyev/git/sap-dev2/src/zcl_large_monolith.clas.abap"
+)
+```
+*   This walks the AST to output a clean JSON map of referenced database tables, external classes, function modules, and structures, allowing you to focus subsequent queries (like `sap_where_used`) strictly on these dependencies.
+
+---
+
+## 6. 🐞 Interactive Debugging Protocol
 
 Breakpoints globally lock SAP work processes. You MUST follow this 4-Stage Debugging Lifecycle:
 
@@ -129,7 +179,7 @@ Once attached and you have the `session_id`:
 
 ---
 
-## 🌐 6. Extending Object Customization (Creation, Deployment & Translations)
+## 7. 🌐 Extending Object Customization (Creation, Deployment & Translations)
 
 The backend proxy `ZCL_SAP_DEV_RPC` is non-final and allows you to subclass and extend it to support completely custom object types (e.g., custom configuration tables, custom DDIC elements, or specific metadata objects) for template retrieval, creation, deployment, and translations.
 
