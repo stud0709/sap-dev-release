@@ -96,7 +96,6 @@ ENDCLASS.
 
 CLASS lcl_tran_handler DEFINITION INHERITING FROM zcl_sap_dev_object_hdlr.
   PUBLIC SECTION.
-    METHODS get_creation_template REDEFINITION.
     METHODS fetch_metadata REDEFINITION.
     METHODS push_metadata REDEFINITION.
 ENDCLASS.

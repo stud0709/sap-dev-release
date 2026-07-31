@@ -94,7 +94,7 @@ CLASS zcl_sap_dev_object_hdlr DEFINITION
   PRIVATE SECTION.
 ENDCLASS.
 
-CLASS zcl_sap_dev_object_hdlr IMPLEMENTATION.
+CLASS ZCL_SAP_DEV_OBJECT_HDLR IMPLEMENTATION.
   METHOD fetch_aspect.
     CASE iv_aspect.
       WHEN 'source'.
