@@ -5,8 +5,8 @@ class ZCL_SAP_DEV_RPC_EXT definition
   create public .
 
 public section.
-protected section.
   methods GET_OBJECT_HANDLER redefinition.
+protected section.
 private section.
 ENDCLASS.
 

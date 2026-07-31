@@ -84,6 +84,21 @@ interface GuardedSQLRequest {
 }
 ```
 
+### Endpoint 4: `GET /api/guarded/settings` and `POST /api/guarded/settings`
+Retrieves or updates the workspace settings map stored in the encrypted credentials vault (`.sap_credentials.json`).
+
+#### GET Request
+Retrieves the decrypted in-memory workspace settings.
+* **Headers**: `Authorization: Bearer <SAP_BRIDGE_TOKEN>`
+* **Response**: A JSON map of active settings (returns `{}` if empty).
+
+#### POST/PUT Request
+Encrypts and saves the settings payload on disk.
+* **Headers**: `Authorization: Bearer <SAP_BRIDGE_TOKEN>`, `Content-Type: application/json`
+* **Request Body**: A JSON map of settings (e.g., `{"me_sap_cookies": {...}}`).
+* **Response**: `{"status": "saved"}` (HTTP 200).
+* **Requires**: Master credentials vault must be unlocked via the Web Dashboard.
+
 ---
 
 ## 4. Security & Cryptographic Validation

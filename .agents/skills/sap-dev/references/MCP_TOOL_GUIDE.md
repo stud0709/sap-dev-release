@@ -2,31 +2,11 @@
 
 Because the backend toolkit is dynamically aggregated through a proxy, use this guide to map standard SAP contexts into explicit tool parameters. As the proxy layer is shipped as a closed-source compiled binary, you cannot inspect the go routines. 
 
-## 🎯 AST Node Mapping (`sap_ast_query`)
-
-When extracting context boundaries (whether via ATC URIs, manual documentation, or general refactoring requests), you must map the target SAP object construct into the strict `target_node_type` parameter required by our offline parser:
-
-| Conceptual Object Construct | ADT URI String Fragment | `target_node_type` |
-| :--- | :--- | :--- |
-| **Object Method** | `type=CLAS/OM` | `MethodImplementation` |
-| **Form Routine** | `type=PROG/FO` | `FormRoutine` |
-| **Function Module** | `type=FUGR/FF` | `FunctionModule` |
-| **Interface Definition** | `type=CLAS/I` | `Interface` |
-| **Class Definition** | `type=CLAS/OC` / `type=CLAS/CC` | `ClassDefinition` |
-| **Single ABAP Statement** | N/A | `Statement` |
-
-*Example ATC Workflow:* You pull an ATC finding with the signature `"file": "...#type=CLAS/OM;name=BUILD_MLV"`. You execute `sap_ast_query(workspace_dir="c:/Users/YuriyDzhenyeyev/git/sap-dev2", target_node_type="MethodImplementation", target_identifier="BUILD_MLV")` to fetch its boundary lines.
-*Example Refactoring Workflow:* A user commands: "Refactor the Form Routine `CALCULATE_DISCOUNT` in program `ZTEST`." You execute `sap_ast_query(workspace_dir="c:/Users/YuriyDzhenyeyev/git/sap-dev2", target_node_type="FormRoutine", target_identifier="CALCULATE_DISCOUNT")` to locate exactly which lines the form spans before editing.
-
-> [!NOTE]
-> **Advanced Node Targeting**
-> The `target_node_type` parameter is not restricted to a hardcoded enum. The `sap-bridge` passes this string directly into the open-source `@abaplint/core` parser (with minor alias conversions like `MethodImplementation` -> `Method`). If you need to target a highly specific or obscure ABAP structural block not listed above, you can pass any valid AST Node structure name defined by the `abaplint` taxonomy.
-
 ## ⚙️ General Tool Invocation Mechanics
 
-1. **ABAP Node Targeting**: Always explicitly resolve string offset locations dynamically. When replacing or investigating code blocks, locate their exact boundaries `StartLine` and `EndLine` first by using `sap_ast_query`. Extract the structural boundaries from the tool, and then execute standard `multi_replace_file_content` logic exactly targeting those isolated lines. Alternatively, for surgical, single-statement changes, use `sap_ast_replace` with `target_node_type="Statement"` to cleanly mutate without complex line-boundary calculations.
+1. **ABAP Node Targeting**: Always resolve string offset locations dynamically. For code modifications, find the target program structure or method signature, open the file using `view_file` to locate the exact boundaries `StartLine` and `EndLine`, and then execute standard `multi_replace_file_content` or `replace_file_content` logic targeting those isolated lines.
 2. **Fail-Fast Interception**: The `sap-bridge` operates on dynamic Atom Discovery. If an MCP tool returns a `failfast:` error (saying an advanced parameter isn't supported on the connected backend), actively re-evaluate the parameter payload, omit the unsupported advanced filters from the tool call, and execute generalized JSON response filtering locally instead.
-3. **Universal URI Fallback**: Many tools (`sap_check_syntax`, `sap_syntax_quick_fix`, `sap_push_source`, `sap_get_element_info`, `sap_diff_versions`) natively support Universal URI Fallback. If you do not have the explicit `object_uri` (e.g., `/sap/bc/adt/programs/programs/ztest`), you can instead provide the `object_name` (e.g., `ZTEST`) and `object_type` (e.g., `PROG`) directly in the tool parameters. The bridge will automatically discover, cache, and resolve the correct backend URI for you. If a tool absolutely requires an explicit URI and does not support the fallback (e.g. Debugger tools), you can discover it by:
+3. **Universal URI Fallback**: Many tools (`sap_check_syntax`, `sap_syntax_quick_fix`, `sap_push`, `sap_get_element_info`, `sap_diff_versions`) natively support Universal URI Fallback. If you do not have the explicit `object_uri` (e.g., `/sap/bc/adt/programs/programs/ztest`), you can instead provide the `object_name` (e.g., `ZTEST`) and `object_type` (e.g., `PROG`) directly in the tool parameters. The bridge will automatically discover, cache, and resolve the correct backend URI for you. If a tool absolutely requires an explicit URI and does not support the fallback (e.g. Debugger tools), you can discover it by:
    - **Inspecting ATC Findings**: When resolving ATC queue findings using `sap_fetch_atc_queue`, the `object_uri` is provided in the payload representing the offending file.
    - **The Omni-Tool (`sap_explore_object`)**: If you only have the name of an object (e.g., `ZCL_MY_CLASS`), you can use `sap_explore_object` to search for it or retrieve its structural JSON outline, which maps every child component to its respective ADT Object URI.
    - **Dynamic Object Types**: The proxy caches valid object types in the background. Use the `sap_lookup_object_types` as a reference when you are unsure what `object_types` to use.
@@ -51,24 +31,24 @@ When extracting context boundaries (whether via ATC URIs, manual documentation, 
      *   *Example XML Query*: `sap_query_xml(file_path="./tmp/spill.xml", xpath="//atom:entry/atom:link[@rel='http://www.sap.com/adt/relations/source']/@href")`
 
 ### Editing Massive Source Files
-If `sap_fetch_source` spills a massive ABAP file into `./tmp/`, strictly use the offline AST workflow:
-1. Find the target method using `sap_explore_object`.
-2. Extract the exact method lines from the spilled `.abap` file using `sap_ast_query` (with `target_node_type="MethodImplementation"`).
-3. Mutate the method locally, then inject the updated code back into the spilled file using `sap_ast_replace`.
-4. Push the mutated massive file back to SAP by calling `sap_push_source` with `source_file_path` pointing to the spilled `./tmp/` file.
+If `sap_fetch` spills a massive ABAP file into `./tmp/`, strictly use local file operations:
+1. Find the target method or structure using `sap_explore_object`.
+2. Open the spilled file in `./tmp/` using `view_file` and inspect the target lines.
+3. Mutate the file locally using `replace_file_content` or `multi_replace_file_content`.
+4. Push the mutated massive file back to SAP by calling `sap_push` with `source_file_path` pointing to the spilled `./tmp/` file and aspect `"source"`.
 
 ### System & Version Targeting
 - Before invoking tools that require `system_alias`, you should call `sap_bridge_status` to safely discover the correct connected backend targets. This prevents cross-system pollution.
 - Before writing custom hooks or running scripts, call **`sap_get_supported_capabilities`** to dynamically retrieve the active workspace's supported object types, extensions, enabled aspect hooks, and registered standalone plugins. 
-- `sap_fetch_source` with `for_editing=true` is purely a local staging mechanism that writes to `./src/` and safely archives unpushed drafts. It does **not** check for write permissions; write permissions are only enforced when attempting to push.
+- `sap_fetch` with `for_editing=true` is purely a local staging mechanism that writes to `./src/` and safely archives unpushed drafts. It does **not** check for write permissions; write permissions are only enforced when attempting to push.
 - When using `sap_diff_versions`, prefer semantic string targets: `"draft"` (local physical file), `"active"` / `"inactive"` (live backend states), or `"-1"` (latest recorded SQLite version).
 
 ### XML Discovery & Navigation
-- **Navigating XML Structures**: If you call `sap_fetch_source` using a base URI and receive XML metadata instead of ABAP code, read the XML to locate the specific sub-link you need (e.g., `href="source/main"` for code, or `href=".../textelements"` for text symbols), and make a second `sap_fetch_source` call using that precise URI.
+- **Navigating XML Structures**: If you call `sap_fetch` using a base URI and receive XML metadata instead of ABAP code, read the XML to locate the specific sub-link you need (e.g., `href="source/main"` for code, or `href=".../textelements"` for text symbols), and make a second `sap_fetch` call using that precise URI.
 
 ### Handling Function Modules (FUGR/FUNC)
-- **Function Groups (FUGR)**: Function Groups are containers. You cannot use `sap_fetch_source` directly on a Function Group's base URI because it doesn't represent a linear source file. You MUST use `sap_explore_object` on the Function Group to discover its specific Include files and Function Modules, and then call `sap_fetch_source` on those specific child URIs.
-- **Function Modules (FUNC / FUGR/FF)**: Unlike GUI-based transactions (SE37), you can programmatically edit a Function Module's signature (Parameters, Exceptions) via text. Use `sap_fetch_source` to retrieve the module's source. If the module is newly created, it may contain a comment hinting at a template. You must replace this comment with the actual pseudo-ABAP signature block injected directly below the `FUNCTION <NAME>.` statement, using this exact syntax:
+- **Function Groups (FUGR)**: Function Groups are containers. You cannot use `sap_fetch` directly on a Function Group's base URI because it doesn't represent a linear source file. You MUST use `sap_explore_object` on the Function Group to discover its specific Include files and Function Modules, and then call `sap_fetch` on those specific child URIs.
+- **Function Modules (FUNC / FUGR/FF)**: Unlike GUI-based transactions (SE37), you can programmatically edit a Function Module's signature (Parameters, Exceptions) via text. Use `sap_fetch` to retrieve the module's source. If the module is newly created, it may contain a comment hinting at a template. You must replace this comment with the actual pseudo-ABAP signature block injected directly below the `FUNCTION <NAME>.` statement, using this exact syntax:
   ```abap
   IMPORTING
     VALUE(IM_P1) TYPE type1 OPTIONAL
@@ -84,14 +64,13 @@ If `sap_fetch_source` spills a massive ABAP file into `./tmp/`, strictly use the
     CX_SY_ZERODIVIDE 
     RESUMABLE(CX_SY_ASSIGN_CAST_ERROR)
   ```
-  You can structurally mutate these blocks and execute `sap_push_source` with `object_type="FUGR/FF"` to permanently alter the backend signature. Note: Activating an altered Function Module often requires mass-activating its parent Function Group to regenerate the global interfaces.
+  You can structurally mutate these blocks and execute `sap_push` with `object_type="FUGR/FF"` to permanently alter the backend signature. Note: Activating an altered Function Module often requires mass-activating its parent Function Group to regenerate the global interfaces.
 
 ### Raw HTTP Requests
 *   The `sap_execute_request` tool provides a raw sandbox for probing ADT endpoints. 
 *   **ADT Headers Configuration**: The ADT backend is strict about HTTP Headers (e.g. `Accept: application/atomsvc+xml` or `Content-Type`). When using `sap_execute_request`, pass headers like `Accept` and `Content-Type` using the **top-level string parameters** (`accept` and `content_type`), keeping them distinct from nested JSON array or dictionary parameters. 
 *   *Example*: `sap_execute_request(workspace_dir="c:/Users/YuriyDzhenyeyev/git/sap-dev2", uri="/sap/bc/adt/discovery", accept="application/atomsvc+xml")`
 *   **Whitelist Authorization Recovery Flow**: When calling `sap_execute_request`, if the response indicates an `UNAUTHORIZED_ENDPOINT` error, immediately invoke the `sap_request_api_permissions` tool to queue the required REST endpoint and HTTP method in the user's Pending Intercepts queue. Direct the user to the Web UI dashboard to approve this pending request, and pause execution until they confirm the authorization.
-
 
 ## 🛠️ Object Creation Templates (`sap_get_creation_template`)
 
@@ -104,13 +83,13 @@ sap_get_creation_template(
   object_name: "ZBUI_MSB_APPL",
   object_type: "DTEL",
   package: "$MSB_COMPAT",
-  reference_entity: "MANDT",
   system_alias: "TD1"
 )
 ```
-*   **Offline Fallback**: For standard code objects (`CLAS`, `INTF`, `PROG`, `FUGR`), the tool generates the minimal XML template completely offline, replacing the package reference inline.
-*   **Dynamic Backend Copies**: For DDIC objects (`DTEL`, `TABL`, `TTYP`, `DOMA`), the tool queries the live backend using a whitelisted read-only request of the `reference_entity` (e.g. `MANDT` for data elements or `BAPIRET2` for tables) to ensure the returned template matches the exact patch level of the target system. It automatically customizes the root name and target package reference, and strips administrative tracking attributes.
-*   **Safety Rewrite**: All templates generated via this tool have their version state set to `inactive` (`core:version="inactive"`), preventing backend assertion dumps (such as `ASSERTION_FAILED` in `CL_SBD_DATAELEMENT_PERSIST`) when initially pushing the shell.
+*   **Universal Dynamic Resolution**: The tool works for **any** object type supported by the target SAP system. It auto-discovers a standard reference object from TADIR, fetches its XML from the backend, and customizes it with the target name, package, and inactive version state.
+*   **Optional `reference_entity`**: You may explicitly specify a `reference_entity` (e.g., `MANDT` for data elements) to use as the template source. If omitted, the tool auto-discovers one from TADIR.
+*   **Content-Type Discovery**: The correct HTTP Content-Type for creating the object shell is resolved dynamically from the cached ADT Discovery payload, ensuring cross-system compatibility.
+*   **Safety Rewrite**: All templates have their version state set to `inactive` (`core:version="inactive"`), preventing backend assertion dumps when initially pushing the shell.
 
 
 ## 📂 ADT Object Metadata (`sap_fetch_metadata` / `sap_push_metadata`)
@@ -151,6 +130,35 @@ The tool operates atomically:
 *   All metadata records are logged in SQLite with the `is_metadata` flag set to `1` (true).
 *   In the Versioning Dashboard, metadata changes are visually marked with a light blue **file-code** icon, while source code changes use a pinkish-red **square-chart-gantt** icon (both are equipped with hover tooltips).
 
+## 📋 SAP Notes Integration (sap_notes_search / sap_note_fetch)
+
+To query and inspect SAP Support Portal notes, use the dedicated note tools.
+
+### 1. Searching Notes
+Use `sap_notes_search` to query me.sap.com for notes and KBAs. 
+*   **Relevance Filtering**: By default, the tool automatically evaluates note applicability on the fly against the connected system's component releases (queried from `CVERS`). It fetches the note's metadata in the background and filters out search results that are not valid or are already resolved by the system's Support Package level.
+*   **Including Irrelevant Notes**: If you deliberately want to include irrelevant/incompatible notes in the search results (e.g. for cross-landscape analysis, backporting workarounds, or reference), pass `include_irrelevant = true`.
+
+```json
+sap_notes_search(
+  workspace_dir: "c:/Users/YuriyDzhenyeyev/git/sap-dev2",
+  query: "WDYA",
+  system_alias: "TD1",
+  include_irrelevant: true
+)
+```
+
+### 2. Fetching Note Details
+Use `sap_note_fetch` to retrieve the complete text, description, component validity, and resolving Support Package details for an SAP Note by ID:
+
+```json
+sap_note_fetch(
+  workspace_dir: "c:/Users/YuriyDzhenyeyev/git/sap-dev2",
+  note_id: "3386534",
+  system_alias: "TD1"
+)
+```
+
 ## 🛡️ Zero-Trust Permissions & Sandbox Handshakes
 
 To guarantee structural safety, all structural execution pathways (pushing code, activating objects, calling APIs) are gated behind explicit UI approval mechanisms in the SAP-Bridge Web Dashboard. If a tool fails because of permission locks (`UNAUTHORIZED`), a request is added to the user's dashboard queue. Stop and instruct the user to approve the pending items in their SAP-Bridge Dashboard:
@@ -158,7 +166,7 @@ To guarantee structural safety, all structural execution pathways (pushing code,
   - **Strict Routing Rules (Fast-Fail)**: Maintain architectural separation between raw endpoint calls and OData calls:
     - Route OData endpoint paths (URIs containing `/odata/` or `/sap/opu/odata/`) exclusively through `sap_odata_call` and `sap_explore_odata_service` to allow structured schema parsing and automatic token-saving optimizations.
     - Raw HTTP requests via `sap_execute_request` reject OData paths to prevent token exhaustion and ensure security schema consistency.
-- **Object Guard** section: governs `sap_push_source` and `sap_activate_object`. Multiple requests can be made with `sap_request_object_permissions`.
+- **Object Guard** section: governs `sap_push` and `sap_activate_object`. Multiple requests can be made with `sap_request_object_permissions`.
 
 ## 🌐 OData Client Operations (`sap_odata_call` / `sap_explore_odata_service`)
 
