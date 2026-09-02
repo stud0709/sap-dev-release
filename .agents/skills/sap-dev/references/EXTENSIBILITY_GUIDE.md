@@ -8,7 +8,7 @@
 
 ## 🎯 Quick Selection Matrix ("When to Choose What")
 
-* **Choose Workspace Plugins** when you want to create custom, on-demand project tools or RFC execution scripts that can be invoked via `sap_execute_plugin`.
+* **Choose Workspace Plugins** when you want to run custom, on-demand scripts or automations with secure SAP backend access (invoked via `sap_execute_plugin`).
 * **Choose Aspect Hooks** when you want to automatically intercept, validate, or transform SAP source code and metadata artifacts during `sap_fetch` or `sap_push`.
 
 ---
@@ -17,7 +17,7 @@
 
 | Feature | 🧩 Workspace Plugins | 🪝 Aspect Hooks |
 | :--- | :--- | :--- |
-| **Primary Purpose** | Run custom project diagnostics, batch routines, or RFC tools | Intercept & transform SAP object aspects during `sap_fetch` / `sap_push` |
+| **Primary Purpose** | Run custom, on-demand scripts or automations with secure SAP backend access | Intercept & transform SAP object aspects during `sap_fetch` / `sap_push` |
 | **Storage Location** | `.agents/skills/<plugin-id>/` (workspace) | `hooks/<hook-id>/` (workspace) |
 | **Manifest File** | `sap-dev-plugin.json` | `hook.json` |
 | **Tool Visibility** | Invoked indirectly via `sap_execute_plugin` | Invoked implicitly during `sap_fetch` / `sap_push` |

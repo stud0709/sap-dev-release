@@ -1,3 +1,5 @@
+<!-- AUTO-GENERATED FILE - DO NOT EDIT MANUALLY. Source: agents-docs/skill-source/templates -->
+
 # MCP Tool Abstraction Guide
 
 Because the backend toolkit is dynamically aggregated through a proxy, use this guide to map standard SAP contexts into explicit tool parameters. As the proxy layer is shipped as a closed-source compiled binary, you cannot inspect the go routines. 
@@ -69,7 +71,7 @@ If `sap_fetch` spills a massive ABAP file into `./tmp/`, strictly use local file
 ### Raw HTTP Requests
 *   The `sap_execute_request` tool provides a raw sandbox for probing ADT endpoints. 
 *   **ADT Headers Configuration**: The ADT backend is strict about HTTP Headers (e.g. `Accept: application/atomsvc+xml` or `Content-Type`). When using `sap_execute_request`, pass headers like `Accept` and `Content-Type` using the **top-level string parameters** (`accept` and `content_type`), keeping them distinct from nested JSON array or dictionary parameters. 
-*   *Example*: `sap_execute_request(workspace_dir="c:/Users/YuriyDzhenyeyev/git/sap-dev2", uri="/sap/bc/adt/discovery", accept="application/atomsvc+xml")`
+*   *Example*: `sap_execute_request(workspace_dir="<workspace_dir>", uri="/sap/bc/adt/discovery", accept="application/atomsvc+xml")`
 *   **Whitelist Authorization Recovery Flow**: When calling `sap_execute_request`, if the response indicates an `UNAUTHORIZED_ENDPOINT` error, immediately invoke the `sap_request_api_permissions` tool to queue the required REST endpoint and HTTP method in the user's Pending Intercepts queue. Direct the user to the Web UI dashboard to approve this pending request, and pause execution until they confirm the authorization.
 
 ## 🛠️ Object Creation Templates (`sap_get_creation_template`)
@@ -79,7 +81,7 @@ To safely instantiate new objects on the SAP backend (whether they are DDIC tabl
 Use `sap_get_creation_template` to fetch a clean, patch-compatible template:
 ```json
 sap_get_creation_template(
-  workspace_dir: "c:/Users/YuriyDzhenyeyev/git/sap-dev2",
+  workspace_dir: "<workspace_dir>",
   object_name: "ZBUI_MSB_APPL",
   object_type: "DTEL",
   package: "$MSB_COMPAT",
@@ -100,7 +102,7 @@ When you need to read or modify non-code structural properties of SAP objects (s
 Use `sap_fetch_metadata` to retrieve raw XML metadata:
 ```json
 sap_fetch_metadata(
-  workspace_dir: "c:/Users/YuriyDzhenyeyev/git/sap-dev2",
+  workspace_dir: "<workspace_dir>",
   object_name: "Z_MY_OBJECT",
   object_type: "FUNC",
   for_editing: true
@@ -113,10 +115,10 @@ sap_fetch_metadata(
 After editing the local XML file under `./src/.../metadata/`, push it back using `sap_push_metadata`:
 ```json
 sap_push_metadata(
-  workspace_dir: "c:/Users/YuriyDzhenyeyev/git/sap-dev2",
+  workspace_dir: "<workspace_dir>",
   object_name: "Z_MY_OBJECT",
   object_type: "FUNC",
-  metadata_file_path: "c:/.../metadata/z_my_object.func.xml"
+  metadata_file_path: "<workspace_dir>/src/<system_alias>/metadata/z_my_object.func.xml"
 )
 ```
 The tool operates atomically:
@@ -141,7 +143,7 @@ Use `sap_notes_search` to query me.sap.com for notes and KBAs.
 
 ```json
 sap_notes_search(
-  workspace_dir: "c:/Users/YuriyDzhenyeyev/git/sap-dev2",
+  workspace_dir: "<workspace_dir>",
   query: "WDYA",
   system_alias: "TD1",
   include_irrelevant: true
@@ -153,7 +155,7 @@ Use `sap_note_fetch` to retrieve the complete text, description, component valid
 
 ```json
 sap_note_fetch(
-  workspace_dir: "c:/Users/YuriyDzhenyeyev/git/sap-dev2",
+  workspace_dir: "<workspace_dir>",
   note_id: "3386534",
   system_alias: "TD1"
 )
@@ -177,7 +179,7 @@ Before querying or mutating an OData service, execute `sap_explore_odata_service
 
 ```json
 sap_explore_odata_service(
-  workspace_dir: "c:/Users/YuriyDzhenyeyev/git/sap-dev2",
+  workspace_dir: "<workspace_dir>",
   service_path: "/sap/opu/odata/SAP/APS_OM_FORM_TMPL_SRV"
 )
 ```
@@ -192,7 +194,7 @@ Use `sap_odata_call` to query, create, update, or delete entity instances.
 
 ```json
 sap_odata_call(
-  workspace_dir: "c:/Users/YuriyDzhenyeyev/git/sap-dev2",
+  workspace_dir: "<workspace_dir>",
   service_path: "/sap/opu/odata/SAP/APS_OM_FORM_TMPL_SRV",
   entity_set: "FormTemplateCollection",
   action: "READ",
@@ -253,7 +255,7 @@ To register a new custom object type `ZMSB` that represents XML files, matches t
 
 ```json
 {
-  "workspace_dir": "c:/Users/YuriyDzhenyeyev/git/sap-dev2",
+  "workspace_dir": "<workspace_dir>",
   "action": "create",
   "object_type": "ZMSB",
   "extension": ".xml",
@@ -287,7 +289,7 @@ To register a WebGUI deep-link template for Classes (`CLAS`) invoking transactio
 
 ```json
 {
-  "workspace_dir": "c:/Users/YuriyDzhenyeyev/git/sap-dev2",
+  "workspace_dir": "<workspace_dir>",
   "action": "create",
   "object_type": "CLAS",
   "transaction_code": "SE24",
@@ -367,4 +369,160 @@ Run these queries using `sap_execute_local_sqlite` with the `query` and `workspa
   WHERE object_uri = '/sap/bc/adt/programs/programs/ztest' 
   ORDER BY version DESC;
   ```
+
+## 🛠️ Customizing CRUD Operations (SPRO / SM30 / SM34)
+
+When maintaining customizing tables, views, or view clusters, follow this dynamic step-by-step workflow:
+
+### 1. Schema Discovery & Context Exploration
+Before performing modifications, discover the target activity, structure, check tables, and domain constraints:
+
+*   **SPRO Node Search (`sap_search_customizing_node`)**: Search the SPRO hierarchy by business term or description to resolve the navigation path, maintenance objects, and technical activity details (`activity`, `transaction`, `object_name`, `object_type`, `maint_transact`):
+    ```json
+    sap_search_customizing_node(
+      workspace_dir: "<workspace_dir>",
+      query: "Payment Card",
+      max_results: 10
+    )
+    ```
+*   **Structural Schema Discovery (`sap_get_customizing_schema`)**: Retrieve key fields, maintenance type (`1` for 1-step, `2` for 2-step), screen numbers (`OVERVIEW_SCREEN`, `DETAIL_SCREEN`), check tables, and domain value lists:
+    ```json
+    sap_get_customizing_schema(
+      workspace_dir: "<workspace_dir>",
+      customizing_target: "TB034"
+    )
+    ```
+*   **Documentation & Field Definitions (`sap_explore_customizing`)**: Review official SAP customizing documentation, underlying table structures, and sample records:
+    ```json
+    sap_explore_customizing(
+      workspace_dir: "<workspace_dir>",
+      customizing_target: "TB034"
+    )
+    ```
+
+### 2. Permissions & Object Guard Pre-Flight
+Mutating customizing operations require prior authorization in the SAP-Bridge Web UI:
+*   **Bulk Permission Request (`sap_request_customizing_permissions`)**: Submit pending requests for required customizing tables or views. This registers the target in the user's **Customizing** tab in the Web UI:
+    ```json
+    sap_request_customizing_permissions(
+      workspace_dir: "<workspace_dir>",
+      requests: [
+        {
+          "object_name": "TB034",
+          "object_type": "VIEW",
+          "description": "Maintain Payment Card Categories"
+        }
+      ]
+    )
+    ```
+*   **CTS Transport Request Binding**: Once the user selects and approves an open Transport Request for the object in the Web UI, all subsequent execution tools automatically bind that approved Transport Request.
+
+### 3. Declarative Data Maintenance Execution
+
+#### A. Declarative Table Maintenance (`sap_gui_maintain_table`)
+For standard single-step and two-step maintenance views (`SM30`), maintain entries declaratively:
+```json
+sap_gui_maintain_table(
+  workspace_dir: "<workspace_dir>",
+  table_name: "TB034",
+  action: "INSERT",
+  fields: {
+    "CCINS": "ZVISA",
+    "CCTYP": "01",
+    "XCHECK": "X"
+  }
+)
+```
+*   **Supported Actions**: `INSERT`, `UPDATE`, `DELETE`, `TRANSLATE`, `READ`.
+*   **Pre-Selection & Positioning**: Pass `position_key` (e.g., `{"CCINS": "ZVISA"}`) to scroll directly to a specific row, or `pre_selection` for views requiring initial filter criteria.
+
+#### B. View Cluster Maintenance (`sap_gui_maintain_cluster`)
+For hierarchical multi-level view clusters (`SM34`), specify the parent key, target sub-object, and child fields:
+```json
+sap_gui_maintain_cluster(
+  workspace_dir: "<workspace_dir>",
+  cluster_name: "VC_T005",
+  sub_object: "V_T005S",
+  parent_key: {
+    "LAND1": "DE"
+  },
+  action: "INSERT",
+  fields: {
+    "BLAND": "99",
+    "BEZEI": "Custom Region"
+  }
+)
+```
+
+#### C. Smart Sequence Engine (`sap_gui_execute_sequence`)
+For multi-step flows, work-area subsets, batch operations, or specialized customizing transactions, execute declarative sequence templates with JSON parameter hydration:
+```json
+sap_gui_execute_sequence(
+  workspace_dir: "<workspace_dir>",
+  sequence_name: "SM30_NEW_ENTRIES",
+  parameters: {
+    "VIEWNAME": "TB034",
+    "ROWS": [
+      { "CCINS": "ZMC", "CCTYP": "01" },
+      { "CCINS": "ZAMEX", "CCTYP": "02" }
+    ]
+  },
+  system: "NPL",
+  client: "001"
+)
+```
+
+##### Pre-Seeded Canonical Sequence Catalog (SQLite)
+The daemon comes pre-seeded with 12 canonical sequences (`category = 'CUSTOMIZING'`, `is_system = 1`):
+1.  **`SM30_DISPLAY_VIEW`**: Opens an SM30 table/view in display mode. Requires `VIEWNAME`.
+2.  **`SM30_NEW_ENTRIES`**: Enters single-step new entries screen, fills rows, and saves. Requires `VIEWNAME`, `ROWS`.
+3.  **`SM30_UPDATE_ROW`**: Positions to existing row, updates field values, and saves. Requires `VIEWNAME`, `POSITION_FIELDS`, `FIELDS`.
+4.  **`SM30_DELETE_ROW`**: Positions to existing row, selects row, deletes, and saves. Requires `VIEWNAME`, `POSITION_FIELDS`.
+5.  **`SM30_TWOSTEP_NEW_ENTRY`**: Enters two-step overview, switches to detail subscreen, fills fields, and saves. Requires `VIEWNAME`, `FIELDS`.
+6.  **`SM30_TWOSTEP_UPDATE_ROW`**: Positions to existing row in overview, navigates into detail view, modifies fields, and saves. Requires `VIEWNAME`, `POSITION_FIELDS`, `FIELDS`.
+7.  **`SM30_TWOSTEP_DISPLAY_DETAIL`**: Positions and displays detail view for a specific row. Requires `VIEWNAME`, `POSITION_FIELDS`.
+8.  **`SM34_MAINTAIN_CLUSTER`**: Opens SM34 cluster, navigates sub-object tree, and displays data. Requires `CLUSTERNAME`, `SUBOBJECT`.
+9.  **`SM34_NAVIGATE_SUBVIEW`**: Selects parent row in primary view, navigates object hierarchy to child subview. Requires `CLUSTERNAME`, `POSITION_FIELDS`, `SUBOBJECT`.
+10. **`SM30_WORK_AREA_MAINTAIN`**: Handles views requiring initial work area popups (`wnd[1]`), fills work area keys, and displays overview. Requires `VIEWNAME`, `WORK_AREA_FIELDS`.
+11. **`SM30_TRANSLATE_TEXT`**: Selects existing row, triggers Translation menu, fills language texts, and saves. Requires `VIEWNAME`, `POSITION_FIELDS`, `FIELDS`.
+12. **`OS55_REVISION_LEVELS`**: Maintains material revision levels via direct transaction OS55. Requires `MATNR`, `ROWS`.
+
+##### Sequence Template Management
+*   **Inspect Sequence Manual**: Call `sap_gui_get_sequence(name: "SM30_NEW_ENTRIES")` to view step blueprints, dynpro transitions, and parameter usage documentation.
+*   **Register Custom Sequences**: Call `sap_gui_save_sequence(name: "...", description: "...", category: "CUSTOMIZING", sequence_json: "...")` to store project-specific workflows.
+
+#### D. Direct Backend RPC Maintenance (`sap_maintain_customizing`)
+When GUI automation is not required and direct backend RFC execution (`VIEW_MAINTENANCE_GIVEREC_RFC`) is preferred:
+```json
+sap_maintain_customizing(
+  workspace_dir: "<workspace_dir>",
+  customizing_target: "TB034",
+  action: "INSERT_UPDATE",
+  entries: [
+    { "CCINS": "ZVISA", "CCTYP": "01", "XCHECK": "X" }
+  ]
+)
+```
+
+### 4. Interactive Diagnostics & Scripting Reference
+*   **Prerequisites & Troubleshooting**:
+    *   **SAP GUI for Java**: An active instance of SAP GUI for Java must be running on the host workstation with an open session logged into the target system and client.
+    *   **Java Runtime / JDK (Java 17+)**: A Java runtime (version 17 or higher) with diagnostic tools (`jps`, `jcmd`) must be available in system `PATH` or configured via `JAVA_HOME`.
+    *   **Recovery Flow**: If `sap_gui_status` reports `OFFLINE` or returns `no running SAP GUI for Java process found`, instruct the user to verify Java 17+ in `PATH`/`JAVA_HOME` and start SAP GUI for Java with an active connection to the target system.
+*   **Bridge Status & Active Sessions**: Use `sap_gui_status` to monitor connection state, open session IDs, and active programs.
+*   **Inspect Dynpro Component Tree**: Use `sap_gui_inspect(capture_screenshot: true)` to inspect UI elements, technical control IDs (`/app/con[0]/ses[0]/wnd[0]/usr/...`), and visual layouts.
+*   **Read Table Data**: Use `sap_gui_read_table(table_id: "...", max_rows: 50)` to extract tabular records directly from Dynpro table controls or ALV grids.
+*   **Single-Step Actions**: Use `sap_gui_action(action_type: "click" | "press_vkey" | "set_text")` to test individual UI operations.
+*   **Scripting Manuals**: For low-level control contracts, refer to [references/gui_scripting/INDEX.md](./gui_scripting/INDEX.md) and [references/gui_scripting/CHEAT_SHEET.md](./gui_scripting/CHEAT_SHEET.md) for official control types, method contracts (`GuiTableControl`, `GuiGridView`, `GuiTree`), and Virtual Key (`VKey`) mappings.
+
+### 5. Transport Request & Client Settings Routing
+Customizing changes must be locked in a transport request of the correct category:
+*   **Client-Specific Customizing**: Target a **Customizing Request** (type `W` in this system's translation) for client-dependent views or tables.
+*   **Cross-Client Customizing**: Target a **Workbench Request** (type `K` in this system's translation) for cross-client objects.
+*   **Translation Mismatch Check**: Verify domain values for `TRFUNCTION` in domain `TRFUNCTION` via `sap_select_data` if the transport organizer rejects the request category.
+*   **Virtual Systems**: Map transportable requests to the target systems configured in TMS (e.g., active consolidation paths or virtual targets).
+
+### 6. Key Constraints & Allowed Namespaces
+*   **Cardinality Rules**: Verify the primary keys of the underlying base table. When a duplicate key error is thrown, it indicates that the base table key (e.g., `CCINS` in `TB033`) is already registered in the database.
+*   **Allowed Namespaces**: When adding test keys, prefix them using customer namespaces (e.g. keys starting with `Y` or `Z`) to bypass namespace validation warnings.
 

@@ -1,3 +1,5 @@
+<!-- AUTO-GENERATED FILE - DO NOT EDIT MANUALLY. Source: agents-docs/skill-source/templates -->
+
 # SAP-Bridge Extensibility & Customization Portal
 
 The `sap-dev` AI Skill can be dynamically extended to handle new backend object types, custom aspect extractions, or automated routines. This guide serves as the high-level entry point for extensibility options in the `sap-bridge` daemon.
@@ -11,7 +13,7 @@ The daemon supports two different paradigms for executing custom code, depending
 | Paradigm | On-Demand Plugins | Aspect Hooks |
 | :--- | :--- | :--- |
 | **Trigger** | Explicit agent execution via `sap_execute_plugin` | Implicit intercept during `sap_fetch` or `sap_push` |
-| **Primary Purpose** | Run custom diagnostics, automated tools, or batch RPCs | Customize how specific object types and aspects are fetched/pushed |
+| **Primary Purpose** | Run custom, on-demand scripts or automations with secure SAP backend access | Customize how specific object types and aspects are fetched/pushed |
 | **Directory** | `.agents/skills/<plugin-id>/` | `hooks/<hook-id>/` |
 | **Inputs** | Stdin payload, environment variables | Stdin JSON containing workspace metadata and active credentials |
 | **Guide** | 👉 **[Plugin Development Guide](./PLUGIN_GUIDE.md)** | 👉 **[Hook Development Guide](./HOOK_GUIDE.md)** |

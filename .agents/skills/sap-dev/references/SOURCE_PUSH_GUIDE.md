@@ -3,6 +3,8 @@ name: Source Push Guide
 description: Agent reference for the SAP source push/lock/version lifecycle
 ---
 
+<!-- AUTO-GENERATED FILE - DO NOT EDIT MANUALLY. Source: agents-docs/skill-source/templates -->
+
 # Source Push Guide
 
 This document covers the workflow for safely modifying SAP ABAP source code and metadata via the unified `sap-bridge` MCP tools.
@@ -13,7 +15,7 @@ Use `sap_fetch` with `aspect="source"` and `for_editing=true` to stage source co
 
 ```json
 sap_fetch(
-  workspace_dir: "c:/Users/YuriyDzhenyeyev/git/sap-dev2",
+  workspace_dir: "<workspace_dir>",
   object_name: "Z_TEST",
   object_type: "PROG",
   aspect: "source",
@@ -38,7 +40,7 @@ After editing the local file, push it back to the SAP backend. **You do not need
 
 ```json
 sap_push(
-  workspace_dir: "c:/Users/YuriyDzhenyeyev/git/sap-dev2",
+  workspace_dir: "<workspace_dir>",
   object_name: "Z_TEST",
   object_type: "PROG",
   aspect: "source"
@@ -80,8 +82,8 @@ Compare your local working draft against the live SAP backend, or compare histor
 
 ```json
 sap_diff_versions(
-  workspace_dir: "c:/Users/YuriyDzhenyeyev/git/sap-dev2",
-  object_uri: "/sap/bc/adt/programs/programs/zydzh_test",
+  workspace_dir: "<workspace_dir>",
+  object_uri: "/sap/bc/adt/programs/programs/z_test",
   from_version: "draft",     # Reads local physical file
   to_version: "active"       # Fetches live backend code
 )
@@ -106,7 +108,7 @@ When creating new dictionary objects (e.g. `DTEL`, `TABL`) or repository objects
    Call `sap_get_creation_template`. The tool auto-discovers a reference entity from TADIR, generates the XML creation template, and **automatically writes it** to the local metadata path `./src/<system_id>/metadata/<object_name>.<type>.xml`:
    ```json
    sap_get_creation_template(
-     workspace_dir: "c:/Users/YuriyDzhenyeyev/git/sap-dev2",
+     workspace_dir: "<workspace_dir>",
      object_name: "ZBUI_MSB_APPL",
      object_type: "DTEL",
      package: "$MSB_COMPAT",
@@ -121,7 +123,7 @@ When creating new dictionary objects (e.g. `DTEL`, `TABL`) or repository objects
    Call `sap_request_object_permissions` to prompt the user for whitelist approval. Pass the target package explicitly in the request item:
    ```json
    sap_request_object_permissions(
-     workspace_dir: "c:/Users/YuriyDzhenyeyev/git/sap-dev2",
+     workspace_dir: "<workspace_dir>",
      system_alias: "TD1",
      requests: [
        { "object_name": "ZBUI_MSB_APPL", "object_type": "DTEL", "package": "$MSB_COMPAT" }
@@ -133,7 +135,7 @@ When creating new dictionary objects (e.g. `DTEL`, `TABL`) or repository objects
    Call `sap_push` with `aspect="metadata"`. The daemon resolves the staged XML and sends it to the ADT collection to instantiate the empty shell on the SAP backend:
    ```json
    sap_push(
-     workspace_dir: "c:/Users/YuriyDzhenyeyev/git/sap-dev2",
+     workspace_dir: "<workspace_dir>",
      object_name: "ZBUI_MSB_APPL",
      object_type: "DTEL",
      aspect: "metadata"
@@ -144,7 +146,7 @@ When creating new dictionary objects (e.g. `DTEL`, `TABL`) or repository objects
    For objects that contain source code (e.g., `CLAS`, `PROG`, `DDLS`), call `sap_fetch` with `aspect="source"` and `for_editing=true`. The SAP backend automatically generates the skeleton (e.g., class structures or function wrappers) when the shell is created. Fetching it stages this clean skeleton locally (e.g., to `./src/TD1/zcl_my_class.clas.abap`):
    ```json
    sap_fetch(
-     workspace_dir: "c:/Users/YuriyDzhenyeyev/git/sap-dev2",
+     workspace_dir: "<workspace_dir>",
      object_name: "ZCL_MY_CLASS",
      object_type: "CLAS",
      aspect: "source",
@@ -156,7 +158,7 @@ When creating new dictionary objects (e.g. `DTEL`, `TABL`) or repository objects
    Edit the staged local source file(s) to add methods or logic, then call:
    ```json
    sap_push(
-     workspace_dir: "c:/Users/YuriyDzhenyeyev/git/sap-dev2",
+     workspace_dir: "<workspace_dir>",
      object_name: "ZCL_MY_CLASS",
      object_type: "CLAS",
      aspect: "source"
@@ -167,7 +169,7 @@ When creating new dictionary objects (e.g. `DTEL`, `TABL`) or repository objects
    Call `sap_activate_object` to compile the active code on the backend:
    ```json
    sap_activate_object(
-     workspace_dir: "c:/Users/YuriyDzhenyeyev/git/sap-dev2",
+     workspace_dir: "<workspace_dir>",
      object_name: "ZCL_MY_CLASS",
      object_type: "CLAS"
    )

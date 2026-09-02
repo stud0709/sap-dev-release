@@ -1,3 +1,5 @@
+<!-- AUTO-GENERATED FILE - DO NOT EDIT MANUALLY. Source: agents-docs/skill-source/templates -->
+
 # MCP Tool JSON Schemas
 
 This document contains the structural JSON schemas for complex MCP tools. When invoking these tools, expect the returned string payload to strictly adhere to these shapes.
@@ -333,4 +335,83 @@ Returns all supported capabilities of the active workspace, detailing embedded o
   ]
 }
 ```
+
+---
+
+## sap_search_customizing_node
+Returns matched SPRO customizing activities with navigation paths, maintenance targets, and technical attributes:
+
+```json
+[
+  {
+    "node_id": "SIMG_CFMENUOLSDOVK1",
+    "text": "Define Tax Determination Rules",
+    "path": "Sales and Distribution > Basic Functions > Taxes > Define Tax Determination Rules",
+    "activity": "SD_TAX_RULES",
+    "transaction": "OVK1",
+    "object_name": "V_TTXD",
+    "object_type": "V",
+    "maint_transact": "SM30"
+  }
+]
+```
+
+---
+
+## sap_get_customizing_schema
+Returns the structural metadata, key flags, check tables, and domain fixed values for a customizing target:
+
+```json
+{
+  "target": "TB034",
+  "object_type": "VIEW",
+  "maintenance_type": "1",
+  "overview_screen": "0420",
+  "detail_screen": "0000",
+  "header_text": "Payment Card Categories",
+  "fields": [
+    {
+      "fieldname": "CCINS",
+      "key": true,
+      "datatype": "CHAR",
+      "leng": 4,
+      "checktable": "TB033",
+      "fieldtext": "Payment Card Category"
+    },
+    {
+      "fieldname": "CCTYP",
+      "key": false,
+      "datatype": "CHAR",
+      "leng": 2,
+      "domain_values": [
+        { "domvalue_l": "01", "ddtext": "Credit Card" },
+        { "domvalue_l": "02", "ddtext": "Procurement Card" }
+      ],
+      "fieldtext": "Payment Card Type"
+    }
+  ]
+}
+```
+
+---
+
+## sap_gui_execute_sequence
+Returns the final step execution status, window title, dynpro coordinates, and status message:
+
+```json
+{
+  "status": "COMPLETED",
+  "message": "All 5 steps executed successfully.",
+  "sequence_name": "SM30_NEW_ENTRIES",
+  "total_steps": 5,
+  "step_index": 5,
+  "system": "NPL",
+  "client": "001",
+  "transaction": "SM30",
+  "program": "SAPLBUS4",
+  "dynpro": "420",
+  "window_title": "Display View \"BP: Payment Card Category\": Overview"
+}
+```
+
 

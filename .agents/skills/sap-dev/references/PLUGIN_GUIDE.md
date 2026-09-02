@@ -6,7 +6,7 @@
 
 ## 1. System Integration: How it Works
 
-Unlike built-in or side-loaded MCP tools, plugins execute in their own isolated OS child processes. The `sap-bridge` daemon manages their execution life cycle and exposes secure loopback endpoints that the plugin script can use to call back into the active SAP connection.
+Unlike built-in MCP tools, plugins execute in their own isolated OS child processes. The `sap-bridge` daemon manages their execution life cycle and exposes secure loopback endpoints that the plugin script can use to call back into the active SAP connection.
 
 ### Directory Structure
 Plugins live under the `.agents/skills/` directory in your active workspace:
@@ -46,7 +46,7 @@ your-workspace/
 
 ```json
 sap_execute_plugin(
-  workspace_dir: "c:/Users/YuriyDzhenyeyev/git/sap-dev2",
+  workspace_dir: "<workspace_dir>",
   script_path: ".agents/skills/sap-echo/echo_call.js",
   payload: { "requtext": "Hello SAP" }
 )

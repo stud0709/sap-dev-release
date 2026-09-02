@@ -1,3 +1,5 @@
+<!-- AUTO-GENERATED FILE - DO NOT EDIT MANUALLY. Source: agents-docs/skill-source/templates -->
+
 # ABAP Test Cockpit (ATC) Remediation Guide (`sap-atc-remediator`)
 
 This document defines the instructions, heuristics, and workflow for the **ATC Remediator Agent** (`sap-atc-remediator`). Your goal is to analyze, repair, and clear static code analysis findings from the SAP ABAP Test Cockpit queue.

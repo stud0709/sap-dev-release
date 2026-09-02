@@ -2,7 +2,7 @@
 
 # ABAP Developer Agent Guide (`sap-developer`)
 
-This document is the authoritative developer guide for the `sap-developer` sub-agent. It covers code modification workflows, modern ABAP language standards, syntax verification, and debugging protocols.
+This document is the authoritative developer guide for the `sap-developer` sub-agent. It covers code modification workflows, modern ABAP language standards, syntax verification, refactoring parity audits, and debugging protocols.
 
 ---
 
@@ -26,7 +26,7 @@ Before making *any* local code edits, establish an ETag baseline and establish f
 - **Staging for Edit**: When preparing to edit, fetch with `for_editing: true`:
 ```json
 sap_fetch(
-  workspace_dir: "c:/Users/YuriyDzhenyeyev/git/sap-dev2",
+  workspace_dir: "<workspace_dir>",
   aspect: "source",
   object_name: "Z_MY_OBJECT",
   object_type: "PROG",
@@ -38,12 +38,13 @@ sap_fetch(
 *   To compare your local changes against the live backend code before pushing, use the native `sap_diff_versions` tool. Standard terminal commands like `git diff` do not return results for files in the `./src/` sandbox because it is gitignored.
 
 ### Step 2: Push Workflow
-After modifying the local file, push it back:
+After modifying the local file, push it back (optionally providing a `comment` to document the change in the local SQLite version history):
 ```json
 sap_push(
-  workspace_dir: "c:/Users/YuriyDzhenyeyev/git/sap-dev2",
+  workspace_dir: "<workspace_dir>",
   object_uri: "/sap/bc/adt/programs/programs/z_my_object",
-  source_file_path: "<absolute_path_to_local_file>"
+  source_file_path: "<absolute_path_to_local_file>",
+  comment: "Refactored SELECT statement to use inline data declarations"
 )
 ```
 The tool executes this pipeline atomically:
@@ -52,25 +53,36 @@ The tool executes this pipeline atomically:
 3.  **PUT**: Writes source as inactive version.
 4.  **Auto-Unlock**: The tool automatically unlocks the object upon success. You do not need to call any unlock tool.
 
-### Step 3: Transport Request Escalation
-During push lock acquisition, if the object requires a transport request:
-*   If `CORRNR` is populated, the tool uses it automatically.
-*   If `CORRNR` is empty, the tool fails with `TRANSPORT_REQUIRED`. You MUST halt and ask the user:
-    > *"This object requires a transport request. Please provide a task number."*
-    Then retry with the `transport_request` parameter.
+### Step 3: Transport Request Governance
+During push operations on transportable objects (non-`$TMP`):
+*   **Active Backend Lock**: If the object is already locked in a transport request (`CORRNR`), the tool reuses that active lock task automatically.
+*   **Object Guard Approved Transport**: If `CORRNR` is empty, the tool retrieves the Transport Request approved by the user in the SAP-Bridge Web UI Object Guard.
+*   **Transport Escalation Block**: If no Transport Request is approved and the object is unassigned, the push tool halts immediately with a structured JSON error (`TRANSPORT_REQUIRED`) and logs a pending request in the Object Guard. Autonomous agents MUST NOT query `E070`/`E071` or guess transport tasks. Direct the user to open the Web UI Object Guard tab, select an open Transport Request for this object, and approve it before retrying.
 
 ### Step 4: Explicit Activation
 Pushed source code is stored as an **inactive draft** on the SAP backend. It will **NOT** take effect or be executed until it is explicitly activated.
 After a successful push, you MUST call `sap_activate_object` to compile and activate the object:
 ```json
 sap_activate_object(
-  workspace_dir: "c:/Users/YuriyDzhenyeyev/git/sap-dev2",
+  workspace_dir: "<workspace_dir>",
   object_name: "Z_MY_OBJECT",
   object_type: "PROG"
 )
 ```
 *   **Validation Check**: If activation fails due to syntax errors, `sap_activate_object` will return the list of syntax errors directly. Resolve them and push again.
 *   **Syntax Check alternative**: You may run `sap_check_syntax` prior to activation, but remember that a successful check does not activate the code. Only `sap_activate_object` makes the change live.
+
+### 🖥️ Classic Dynpro & Screen Authoring (`aspect: "dynpro"`)
+
+When developing classic SAP GUI dialogs, custom containers (`CL_GUI_CUSTOM_CONTAINER` / ALV Grids), Table Controls, Tabstrips, or EWM RF subscreens:
+- **Local Staging Model**: Stage the screen as twin files in `./src/<system_id>/dynpros/`:
+  - `<program>.<dynnr>.flow.abap` (Pure ABAP flow logic: PBO, PAI, POV, POH)
+  - `<program>.<dynnr>.screen.json` (Declarative header & element layout schema)
+  Existing screens can be fetched for editing via `sap_fetch(aspect: "dynpro", object_name: "<program>:<dynnr>", for_editing: true)`.
+- **Reference Templates**: Use `sap_get_creation_template(object_type: "DYNP", object_name: "<prog>:<dynnr>", reference_entity: "<ref_prog>:<ref_dynnr>")` to generate starter layouts based on standard SAP reference screens (e.g. from package `SABAPDEMOS` or `/SCWM/RF_UI`).
+- **Push & Creation / Compilation**: Calling `sap_push(aspect: "dynpro", object_name: "<program>:<dynnr>", activate: true)` directly creates or updates the screen definitions and flow logic on the SAP backend, compiles bytecode, and automatically provisions standard GUI status / titlebars in the CUA interface table (`EUDB`).
+- **Authoritative Specification & Reference Guide**: For the complete widget type matrix, element attributes, status icons, VRM dropdowns, F4 Search Help DDIC signatures, Table Controls, Tabstrips, Context Menus, and standard SAP reference programs in `SABAPDEMOS` and `SLIS`, consult:
+  - **[DYNPRO_AUTHORING_GUIDE.md](references/DYNPRO_AUTHORING_GUIDE.md)**
 
 ---
 
@@ -104,7 +116,7 @@ A task is **not done** until the code passes syntax validation.
 Use `sap_check_syntax` to validate complete classes, programs, or dictionary (DDIC) objects directly against the backend:
 ```json
 sap_check_syntax(
-  workspace_dir: "c:/Users/YuriyDzhenyeyev/git/sap-dev2",
+  workspace_dir: "<workspace_dir>",
   object_uri: "/sap/bc/adt/classrun/classes/zcl_my_class"
 )
 ```
@@ -113,12 +125,111 @@ sap_check_syntax(
 For raw code snippets or procedural blocks that are not fully formed classes/reports, use `sap_simulate_snippet`:
 ```json
 sap_simulate_snippet(
-  workspace_dir: "c:/Users/YuriyDzhenyeyev/git/sap-dev2",
+  workspace_dir: "<workspace_dir>",
   source_text: "DATA(lv_val) = 1. WRITE lv_val."
 )
 ```
 *   This injects the snippet dynamically into a dummy container (`Z_AGENT_SANDBOX`) to validate syntax.
 *   *Note*: If the simulator hits a `notProcessed` error, halt and ask the user to manually create the empty `Z_AGENT_SANDBOX` executable program in `$TMP` before proceeding.
+
+### C. Dynamic Method Execution & ABAP Unit Testing (`sap_execute_ext_method`, `sap_run_tests`)
+
+All dynamic backend code executions are governed by the zero-trust **Execution Guard**:
+
+#### 1. Executing Extension Methods on `ZCL_SAP_DEV_RPC_EXT` (`sap_execute_ext_method`)
+To execute a custom exploratory or scratchpad method inside `ZCL_SAP_DEV_RPC_EXT` with structured JSON input/output:
+```json
+sap_execute_ext_method(
+  workspace_dir: "<workspace_dir>",
+  method_name: "HELLO_WORLD",
+  params: {
+    "name": "Developer"
+  },
+  system_alias: "NPL-001"
+)
+```
+*   **Method Signature Convention**: Target extension methods in `ZCL_SAP_DEV_RPC_EXT` must follow the clean standard signature:
+    ```abap
+    METHODS hello_world
+      IMPORTING
+        iv_params TYPE string OPTIONAL
+      RETURNING
+        VALUE(rv_result) TYPE string.
+    ```
+*   **Canonical Reference Implementation**: See [zcl_sap_dev_rpc_ext.clas.abap](./abap/zcl_sap_dev_rpc_ext.clas.abap) for complete ABAP implementations with parameter deserialization (`/ui2/cl_json=>deserialize`), system context retrieval, and structured JSON output templates.
+*   **Method-Level AST Guarding**: The Go Bridge extracts *only* the specific `METHOD <name> ... ENDMETHOD` block, generates localized method diffs and SHA-256 fingerprints, and requires user approval in the Web UI **Execution Guard** before dispatch.
+*   **Structured JSON Processing**: Input `params` are automatically serialized to JSON before dispatch; the method's `rv_result` JSON string is parsed directly into structured output for the agent.
+*   **Boilerplate Generator**: You can generate a ready-to-paste ABAP method skeleton and sample JSON payload anytime via `sap_get_creation_template(object_name="MY_METHOD", object_type="RPC_METHOD")`.
+
+#### 2. Running Automated ABAP Unit Tests (`sap_run_tests`)
+To execute ABAP Unit test suites (equivalent to `Ctrl+Shift+F10` in Eclipse ADT) with structured assertion reporting:
+```json
+sap_run_tests(
+  workspace_dir: "<workspace_dir>",
+  object_name: "ZCL_ORDER_PROCESSOR",
+  object_type: "CLAS",
+  test_class: "LTCL_UNIT_TESTS",
+  risk_level_ceiling: "HARMLESS",
+  system_alias: "TD1-100"
+)
+```
+*   **Structured Test Findings**: Returns pass/fail breakdown, execution times, assert messages, expectation mismatches, and stack traces with line numbers.
+*   **Execution Guard & AUnit Wizard**: If unauthorized, returns an `UNAUTHORIZED_EXECUTION` payload detailing the declared risk level. Ask the user to open the Web UI **Execution Guard** tab. The user can set a Maximum Allowed Risk Level policy (`Harmless Only`, `Up to Dangerous`, `Allow Critical`) and select specific test classes/methods in the AUnit Permission Wizard. Live backend ETag locking auto-revokes grants if source or test code is altered in SAP.
+
+---
+
+## 5. 📐 Refactoring Verification & AST Parity Auditing (`audit_abap_parity.mjs`)
+
+When refactoring large ABAP classes (such as decomposing monolithic 3,000+ line classes into `definitions`, `implementations`, and `source/main` includes, or splitting monster methods into focused private subroutines), line-based text diffs create massive noise and easily miss subtle drops (like missing `IF sy-subrc <> 0` checks or dropped bitmasks).
+
+The skill provides an automated, offline AST Parity Auditor script: `.agents/skills/sap-dev/scripts/audit_abap_parity.mjs` (powered by `@abaplint/core`).
+
+### A. Running the AST Parity Auditor
+
+```bash
+# Compare a refactored class pool against a Git baseline
+node .agents/skills/sap-dev/scripts/audit_abap_parity.mjs \
+  --git-baseline HEAD~1:.agents/skills/sap-dev/references/abap/zcl_sap_dev_dev_helper.clas.abap \
+  --target .agents/skills/sap-dev/references/abap/zcl_sap_dev_dev_helper.clas.abap \
+           .agents/skills/sap-dev/references/abap/zcl_sap_dev_dev_helper.clas.locals_def.abap \
+           .agents/skills/sap-dev/references/abap/zcl_sap_dev_dev_helper.clas.locals_imp.abap
+
+# Compare against a local file baseline
+node .agents/skills/sap-dev/scripts/audit_abap_parity.mjs \
+  --baseline ./tmp/monolith_backup.abap \
+  --target ./src/zcl_my_class.clas.abap ./src/zcl_my_class.clas.locals_def.abap ./src/zcl_my_class.clas.locals_imp.abap
+
+# Pass an ephemeral whitelist file for intentional refactoring drops
+node .agents/skills/sap-dev/scripts/audit_abap_parity.mjs \
+  --git-baseline HEAD~1:<ref> \
+  --target <includes...> \
+  --whitelist ./tmp/audit_intent.json
+
+# JSON mode for automated subagent evaluation
+node .agents/skills/sap-dev/scripts/audit_abap_parity.mjs --git-baseline HEAD~1:<ref> --target <includes...> --json
+```
+
+### B. What the Auditor Verifies
+1. **Symbol Table Parity**: Ensures 100% preservation of all public/protected methods, interfaces, types, and constants.
+2. **Decomposition Mapping**: Automatically recognizes private helper subroutines created during method decomposition.
+3. **In-Method Statement Sinks**:
+   - `CALL FUNCTION`: Confirms every function module called in baseline is preserved in target.
+   - Database Operations: Verifies `SELECT`, `UPDATE`, `INSERT`, `DELETE`, and `COMMIT WORK` statements.
+   - Low-Level Bitwise Operations: Verifies Dynpro bitmask operators (`BIT-OR`, `BIT-AND`, `c_x80`, `D021S_RES1`, `FMB1`).
+   - Messages: Verifies `MESSAGE` statements in error handling routines.
+4. **Decision Path & Branch Tracking**: Flags severe branch collapse to catch accidentally deleted error branches.
+5. **Syntax & Unknown Tokens**: Intercepts unclosed blocks, missing periods, and syntax anomalies prior to backend push.
+
+### C. Declaring Intentional Changes via Whitelist File
+To avoid polluting ABAP backend source code with comments or pragmas, intentional changes are passed via an ephemeral JSON file (`--whitelist <file>`):
+```json
+{
+  "allowed_function_calls": ["RFC_READ_TABLE"],
+  "allowed_db_drops": 10,
+  "reason": "RFC_READ_TABLE replaced with direct SQL projection"
+}
+```
+The auditor registers the whitelist entries and outputs them under `Approved Whitelisted Intents` rather than failing the audit.
 
 ---
 
@@ -172,114 +283,20 @@ Once attached and you have the `session_id`:
 
 ---
 
-## 7. 🌐 Extending Object Customization (Creation, Deployment & Translations)
+## 7. 🔍 Troubleshooting & Diagnostic Telemetry
 
-The backend proxy `ZCL_SAP_DEV_RPC` is non-final and allows you to subclass and extend it to support completely custom object types (e.g., custom configuration tables, custom DDIC elements, or specific metadata objects) for template retrieval, creation, deployment, and translations.
-
-### Step 1: Create a Subclass
-Create a new subclass that inherits from `ZCL_SAP_DEV_RPC` (e.g., `ZCL_SAP_DEV_RPC_EXT`).
-
-### Step 2: Override the Object Handler Resolver
-Redefine the `get_object_handler` method in your subclass:
-- `get_object_handler`
-
-### Step 3: Implement Your Custom Object Handler Class
-Create a local class in your subclass definition (or a global ABAP class) that inherits from the unified abstract base class `ZCL_SAP_DEV_OBJECT_HDLR` and override only the methods you need:
-- `get_creation_template` (returns custom creation ADT XML)
-- `fetch_metadata` (reads/formats custom backend metadata to XML)
-- `push_metadata` (creates/deploys/updates custom object from XML)
-- `fetch_source` (reads custom object source/logic code)
-- `push_source` (saves/deploys custom object source/logic code)
-- `read_translations` (extracts translations as JSON)
-- `push_translations` (updates translations from JSON)
-
-#### Example: Subclass Method Override
-```abap
-CLASS zcl_sap_dev_rpc_ext DEFINITION INHERITING FROM zcl_sap_dev_rpc.
-  PROTECTED SECTION.
-    METHODS get_object_handler REDEFINITION.
-ENDCLASS.
-
-CLASS zcl_sap_dev_rpc_ext IMPLEMENTATION.
-  METHOD get_object_handler.
-    " Resolve to custom local/global handlers
-    IF iv_object_type = 'ZWDY'.
-      CREATE OBJECT ro_handler TYPE lcl_my_custom_wdy_handler.
-      RETURN.
-    ENDIF.
-    
-    " Fallback to superclass handlers
-    ro_handler = super->get_object_handler( iv_object_type ).
-  ENDMETHOD.
-ENDCLASS.
-```
-
-#### Example: Implementing a Custom Handler
-```abap
-CLASS lcl_my_custom_wdy_handler DEFINITION INHERITING FROM zcl_sap_dev_object_hdlr.
-ENDCLASS.
-
-CLASS lcl_my_custom_wdy_handler IMPLEMENTATION.
-  METHOD zcl_sap_dev_object_hdlr~read_translations.
-    " Implement custom translation read logic here
-    " rv_json = ...
-  ENDMETHOD.
-
-  METHOD zcl_sap_dev_object_hdlr~push_translations.
-    " Implement custom translation write/transport logic here
-    " rv_json = ...
-  ENDMETHOD.
-ENDCLASS.
-```
-
-### Step 4: Update the ICF Service Handler
-To route REST endpoint requests through your new subclass handler instead of the superclass:
-1. Open transaction `SICF` on your SAP system.
-2. Locate the service path used by `sap-bridge` (default is `/default_host/sap/bc/sap-dev-rpc`).
-3. Double-click the service node, switch to Change mode, and select the **Handler List** tab.
-4. Replace the handler class `ZCL_SAP_DEV_RPC` with your new subclass `ZCL_SAP_DEV_RPC_EXT`.
-5. Save the service node configuration. All tool routing calls will now execute via your subclass.
+When investigating tool failures, ADT network errors, or unexpected responses:
+- **Search Diagnostic Logs**: When debug file logging is enabled in the Web Dashboard, use `grep_search` on `<workspace>/tmp/sap-bridge.log` (e.g. `\"level\":\"ERROR\"` or `\"comp\":\"ADT\"`) to inspect raw HTTP payloads and tool inputs.
+- **Query SQLite Audit Tables**: Use `sap_execute_local_sqlite` to query `sap_mcp_logs` and `sap_adt_logs` for historical execution parameters.
+- **Backend Compatibility Warnings**: If `sap_bridge_status` returns `update_backend`, notify the user to update the backend proxy classes (`ZCL_SAP_DEV_RPC` / `ZCL_SAP_DEV_TUNNEL`) via the Web Dashboard Upgrade tab (`/upgrade`).
 
 ---
 
-## 8. 📡 Nostr Relay Tunnel Architecture & Gateway Setup
+## 8. 🔌 Reference & Extensibility Guides
 
-The Nostr Relay Tunnel enables secure, encrypted remote connectivity between local `sap-bridge` daemons and remote SAP systems running inside Citrix, firewalled corporate networks, or isolated environments—without requiring open inbound firewall ports or VPNs.
+For detailed specifications on specialized subsystems, consult the dedicated manuals:
 
-### Architecture & Key Components
-
-1. **Remote Gateway Class ([zcl_sap_dev_tunnel.clas.abap](file:///.agents/skills/sap-dev/references/zcl_sap_dev_tunnel.clas.abap))**:
-   - Deployed into SAP ICF on the remote SAP system.
-   - Serves an embedded Single-Page Application that runs directly inside the remote browser (e.g. in Citrix).
-   - Opens outbound WebSocket connections to public Nostr relays (`nos.lol`, `relay.primal.net`, `relay.damus.io`).
-
-2. **BIP-340 Schnorr Cryptographic Signatures**:
-   - Outbound requests and response events are signed with authentic BIP-340 secp256k1 Schnorr signatures (NIP-01/NIP-16).
-   - Events use ephemeral `kind: 20000` with subscription filters including `since: current_time - 5s` to suppress historical event replays.
-
-3. **Dual-Layer System ID & Client Verification**:
-   - **Remote Pairing Verification**: When a Base64 pairing token is pasted into `ZCL_SAP_DEV_TUNNEL`, the browser cross-checks `token.system_id` and `token.client` against live `sy-sysid` and `sy-mandt`. Mismatches block connection with an immediate alert.
-   - **Local Daemon Verification**: `sap-bridge` cross-checks incoming `ping` heartbeats against target system credentials (`nc.systemID` and `nc.sapClient`), ignoring mismatched ping events.
-
-4. **Heartbeat & Telemetry Parameters**:
-   - **15-Second Heartbeat Interval**: `sendPingHeartbeat()` runs every 15 seconds to keep WebSocket connections warm through corporate proxies while reducing public relay traffic by 75%.
-   - **60-Second Offline Threshold**: `sap-bridge` marks the connection as `"offline"` if heartbeats stop for more than 60 seconds.
-
-5. **Live Activity Console**:
-   - Embedded real-time log box displaying `[INFO]`, `[PING]`, `[REQ]`, `[RES]`, and `[ERR]` events.
-   - Features a **100-entry ring buffer cap** to maintain low DOM memory footprint.
-
-6. **Relay Resolution Hierarchy**:
-   - **(1) Connection-Specific Relays**: If `nostr_relays` is defined on a system card, it takes highest precedence.
-   - **(2) Workspace Default Nostr Relay List**: If connection relays are blank, `sap-bridge` resolves the global workspace default list configured via Web UI Workspace Settings (`default_nostr_relays`).
-   - **(3) Hardcoded Fallback**: `wss://relay.damus.io, wss://nos.lol, wss://relay.primal.net`.
-
----
-
-## 9. 🔌 System Extensibility Guides
-
-For detailed specifications on expanding `sap-bridge` capabilities, refer to our dedicated guides:
-
-* **[Extensibility Selection Guide](./EXTENSIBILITY_GUIDE.md)**: Overview & decision tree ("When to Choose What").
+* **[Dynpro & Screen Authoring Guide](./DYNPRO_AUTHORING_GUIDE.md)**: Universal screen JSON schemas, widget attributes, Table Controls, Tabstrips, F4 Search Help, and the working showcase codebase.
+* **[Extensibility Selection Guide](./EXTENSIBILITY_GUIDE.md)**: Architecture & decision tree for Workspace Plugins and Aspect Hooks.
 * **[Workspace Plugins Guide](./PLUGIN_GUIDE.md)**: Build project-local automation scripts executed via `sap_execute_plugin`.
 * **[Aspect Hooks Guide](./HOOK_GUIDE.md)**: Intercept & transform SAP object aspects during `sap_fetch` or `sap_push`.

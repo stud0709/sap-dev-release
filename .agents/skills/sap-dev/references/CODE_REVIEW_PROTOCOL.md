@@ -1,3 +1,5 @@
+<!-- AUTO-GENERATED FILE - DO NOT EDIT MANUALLY. Source: agents-docs/skill-source/templates -->
+
 # Autonomous Code Review Protocol (`sap-reviewer`)
 
 This document defines the instructions, standards, and workflow for the **Code Reviewer Agent** (`sap-reviewer`). You must strictly evaluate all completed developer code drafts against this protocol before approving backend activation.

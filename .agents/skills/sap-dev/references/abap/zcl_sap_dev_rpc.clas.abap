@@ -14,13 +14,29 @@ CLASS zcl_sap_dev_rpc DEFINITION
         iv_object_type    TYPE string
       RETURNING
         VALUE(ro_handler) TYPE REF TO zcl_sap_dev_object_hdlr.
+    METHODS resolve_target_to_view
+      IMPORTING
+        iv_target     TYPE string
+      EXPORTING
+        ev_viewname   TYPE tabname
+        ev_is_cluster TYPE abap_bool.
   PROTECTED SECTION.
     METHODS handle_sap_read_screen
       IMPORTING
         iv_payload     TYPE string
       RETURNING
         VALUE(rv_json) TYPE string.
+    METHODS handle_sap_push_dynpro
+      IMPORTING
+        iv_payload     TYPE string
+      RETURNING
+        VALUE(rv_json) TYPE string.
     METHODS handle_sap_read_screen_status
+      IMPORTING
+        iv_payload     TYPE string
+      RETURNING
+        VALUE(rv_json) TYPE string.
+    METHODS handle_sap_check_dynpro_syntax
       IMPORTING
         iv_payload     TYPE string
       RETURNING
@@ -85,6 +101,30 @@ CLASS zcl_sap_dev_rpc DEFINITION
         iv_payload     TYPE string
       RETURNING
         VALUE(rv_json) TYPE string.
+    METHODS handle_get_custom_schema
+      IMPORTING
+        iv_payload     TYPE string
+      RETURNING
+        VALUE(rv_json) TYPE string.
+    METHODS handle_maintain_custom
+      IMPORTING
+        iv_payload     TYPE string
+      RETURNING
+        VALUE(rv_json) TYPE string.
+    METHODS handle_get_custom_metadata
+      IMPORTING
+        iv_payload     TYPE string
+      RETURNING
+        VALUE(rv_json) TYPE string.
+    METHODS get_sap_timestamps
+      IMPORTING
+        iv_viewname   TYPE tabname
+        iv_is_cluster TYPE abap_bool
+      EXPORTING
+        ev_last_date  TYPE dats
+        ev_last_time  TYPE tims
+        ev_gen_date   TYPE dats
+        ev_gen_time   TYPE tims.
   PRIVATE SECTION.
 ENDCLASS.
 
@@ -106,13 +146,17 @@ CLASS ZCL_SAP_DEV_RPC IMPLEMENTATION.
 
         CASE ls_req-tool.
           WHEN 'ping'.
-            lv_response = '{"status": "pong"}'.
+                                                lv_response = '{"status": "pong", "version": "v1.924", "checksum": "28c40f3b"}'.
           WHEN 'sap_fetch'.
             lv_response = handle_sap_fetch( lv_body ).
           WHEN 'sap_push'.
             lv_response = handle_sap_push( lv_body ).
-          WHEN 'sap_read_screen'.
+          WHEN 'sap_read_screen' OR 'sap_read_dynpro'.
             lv_response = handle_sap_read_screen( lv_body ).
+          WHEN 'sap_push_screen' OR 'sap_push_dynpro'.
+            lv_response = handle_sap_push_dynpro( lv_body ).
+          WHEN 'sap_check_dynpro_syntax' OR 'check_dynpro_syntax'.
+            lv_response = handle_sap_check_dynpro_syntax( lv_body ).
           WHEN 'sap_read_screen_status'.
             lv_response = handle_sap_read_screen_status( lv_body ).
           WHEN 'sap_push_source'.
@@ -137,6 +181,13 @@ CLASS ZCL_SAP_DEV_RPC IMPLEMENTATION.
             lv_response = handle_sap_fetch_source_rpc( lv_body ).
           WHEN 'sap_search_source_code'.
             lv_response = handle_sap_search_src_code( lv_body ).
+          WHEN 'sap_get_customizing_schema'.
+            lv_response = handle_get_custom_schema( lv_body ).
+          WHEN 'sap_maintain_customizing'.
+            lv_response = handle_maintain_custom( lv_body ).
+          WHEN 'sap_get_customizing_metadata'.
+            lv_response = handle_get_custom_metadata( lv_body ).
+
           WHEN OTHERS.
             server->response->set_status( code = 400 reason = 'Bad Request' ).
             server->response->set_cdata( |Unknown or missing tool parameter: { ls_req-tool }| ).
@@ -187,14 +238,101 @@ CLASS ZCL_SAP_DEV_RPC IMPLEMENTATION.
             OTHERS                = 4.
 
         IF sy-subrc = 0.
+          TYPES: BEGIN OF ty_field_out,
+                   name TYPE string,
+                   type TYPE string,
+                   line TYPE i,
+                   colm TYPE i,
+                   leng TYPE i,
+                   grp1 TYPE string,
+                   grp2 TYPE string,
+                   grp3 TYPE string,
+                   grp4 TYPE string,
+                   stxt TYPE string,
+                   ltyp TYPE string,
+                   ityp TYPE string,
+                   flg1 TYPE string,
+                   flg2 TYPE string,
+                   flg3 TYPE string,
+                   fmb1 TYPE string,
+                   fmb2 TYPE string,
+                   fmky TYPE string,
+                   paid TYPE string,
+                   dmac TYPE string,
+                   fill TYPE string,
+                   colr TYPE string,
+                   auth TYPE string,
+                   res1 TYPE string,
+                   res2 TYPE string,
+                 END OF ty_field_out.
+
+          TYPES: BEGIN OF ty_header_out,
+                   prog TYPE string,
+                   dnum TYPE string,
+                   type TYPE string,
+                   linc TYPE i,
+                   colc TYPE i,
+                   next TYPE string,
+                   spra TYPE string,
+                   dtxt TYPE string,
+                 END OF ty_header_out.
+
+          DATA: lt_chfld TYPE TABLE OF scr_chfld.
+          CALL FUNCTION 'RS_SCRP_FIELDS_RAW_TO_CHAR'
+            TABLES
+              fields_char = lt_chfld
+              fields_int  = lt_fields
+            EXCEPTIONS
+              OTHERS      = 1.
+
           TYPES: BEGIN OF ty_result,
-                   header     TYPE d020s,
-                   fields     TYPE STANDARD TABLE OF d021s WITH DEFAULT KEY,
-                   flow_logic TYPE dyn_flowlist,
+                   header      TYPE ty_header_out,
+                   fields      TYPE STANDARD TABLE OF ty_field_out WITH DEFAULT KEY,
+                   char_fields TYPE STANDARD TABLE OF scr_chfld WITH DEFAULT KEY,
+                   flow_logic  TYPE dyn_flowlist,
                  END OF ty_result.
+
           DATA: ls_result TYPE ty_result.
-          ls_result-header = ls_header.
-          ls_result-fields = lt_fields.
+          ls_result-header-prog = ls_header-prog.
+          ls_result-header-dnum = ls_header-dnum.
+          ls_result-header-type = ls_header-type.
+          ls_result-header-linc = ls_header-noli.
+          ls_result-header-colc = ls_header-noco.
+          ls_result-header-next = ls_header-fnum.
+          ls_result-header-spra = ls_header-spra.
+          ls_result-header-dtxt = lv_text.
+          ls_result-char_fields = lt_chfld.
+
+          LOOP AT lt_fields INTO DATA(ls_f).
+            DATA: ls_fo TYPE ty_field_out.
+            ls_fo-name = ls_f-fnam.
+            ls_fo-type = ls_f-type.
+            ls_fo-line = ls_f-line.
+            ls_fo-colm = ls_f-coln.
+            ls_fo-leng = ls_f-leng.
+            ls_fo-grp1 = ls_f-grp1.
+            ls_fo-grp2 = ls_f-grp2.
+            ls_fo-grp3 = ls_f-grp3.
+            ls_fo-grp4 = ls_f-grp4.
+            ls_fo-stxt = ls_f-stxt.
+            ls_fo-ltyp = ls_f-ltyp.
+            ls_fo-ityp = ls_f-ityp.
+            ls_fo-flg1 = |{ ls_f-flg1 }|.
+            ls_fo-flg2 = |{ ls_f-flg2 }|.
+            ls_fo-flg3 = |{ ls_f-flg3 }|.
+            ls_fo-fmb1 = |{ ls_f-fmb1 }|.
+            ls_fo-fmb2 = |{ ls_f-fmb2 }|.
+            ls_fo-fmky = ls_f-fmky.
+            ls_fo-paid = ls_f-paid.
+            ls_fo-dmac = ls_f-dmac.
+            ls_fo-fill = ls_f-fill.
+            ls_fo-colr = ls_f-colr.
+            ls_fo-auth = ls_f-auth.
+            ls_fo-res1 = ls_f-res1.
+            ls_fo-res2 = ls_f-res2.
+            APPEND ls_fo TO ls_result-fields.
+          ENDLOOP.
+
           ls_result-flow_logic = lt_flow.
 
           rv_json = /ui2/cl_json=>serialize( data = ls_result ).
@@ -212,6 +350,54 @@ CLASS ZCL_SAP_DEV_RPC IMPLEMENTATION.
       CATCH cx_root INTO DATA(lx_root).
         rv_json = |\{"error": "{ lx_root->get_text( ) }"\}|.
     ENDTRY.
+  ENDMETHOD.
+
+  METHOD handle_sap_push_dynpro.
+    DATA: lv_class  TYPE string VALUE 'ZCL_SAP_DEV_DEV_HELPER',
+          lv_method TYPE string VALUE 'DISPATCH'.
+    cl_abap_typedescr=>describe_by_name(
+      EXPORTING  p_name         = lv_class
+      RECEIVING  p_descr_ref    = DATA(lo_descr)
+      EXCEPTIONS type_not_found = 1 ).
+    IF sy-subrc = 0.
+      TRY.
+          CALL METHOD (lv_class)=>(lv_method)
+            EXPORTING
+              iv_action  = 'PUSH_DYNPRO'
+              iv_payload = iv_payload
+              io_rpc     = me
+            RECEIVING
+              rv_json    = rv_json.
+        CATCH cx_root INTO DATA(lx_root).
+          rv_json = |\{"error": "Failed to execute dev helper: { escape( val = lx_root->get_text( ) format = cl_abap_format=>e_json_string ) }"\}|.
+      ENDTRY.
+    ELSE.
+      rv_json = '{"error": "Write operations are disabled on this system."}'.
+    ENDIF.
+  ENDMETHOD.
+
+  METHOD handle_sap_check_dynpro_syntax.
+    DATA: lv_class  TYPE string VALUE 'ZCL_SAP_DEV_DEV_HELPER',
+          lv_method TYPE string VALUE 'DISPATCH'.
+    cl_abap_typedescr=>describe_by_name(
+      EXPORTING  p_name         = lv_class
+      RECEIVING  p_descr_ref    = DATA(lo_descr)
+      EXCEPTIONS type_not_found = 1 ).
+    IF sy-subrc = 0.
+      TRY.
+          CALL METHOD (lv_class)=>(lv_method)
+            EXPORTING
+              iv_action  = 'CHECK_DYNPRO_SYNTAX'
+              iv_payload = iv_payload
+              io_rpc     = me
+            RECEIVING
+              rv_json    = rv_json.
+        CATCH cx_root INTO DATA(lx_root).
+          rv_json = |\{"error": "Failed to execute dev helper: { escape( val = lx_root->get_text( ) format = cl_abap_format=>e_json_string ) }"\}|.
+      ENDTRY.
+    ELSE.
+      rv_json = '{"error": "Dev helper is disabled or not installed on this system."}'.
+    ENDIF.
   ENDMETHOD.
 
   METHOD handle_sap_read_screen_status.
@@ -357,24 +543,36 @@ CLASS ZCL_SAP_DEV_RPC IMPLEMENTATION.
       APPEND VALUE #( node_id = ls_node-node_id text = ls_node-text ) TO lt_matched_nodes.
     ENDLOOP.
 
+    DATA: lv_act_30 TYPE tnodeimgr-ref_object.
     LOOP AT lt_activities INTO DATA(ls_act) WHERE text CS ls_payload-query.
-      SELECT node_id FROM tnodeimgr APPENDING TABLE @lt_node_refs WHERE ref_object = @ls_act-activity.
+      lv_act_30 = ls_act-activity.
+      SELECT node_id FROM tnodeimgr APPENDING TABLE @lt_node_refs WHERE ref_object = @lv_act_30.
     ENDLOOP.
 
     IF lt_node_refs IS NOT INITIAL.
-      SELECT node_id, text FROM tnodeimgt APPENDING TABLE @lt_matched_nodes
-        FOR ALL ENTRIES IN @lt_node_refs
-        WHERE node_id = @lt_node_refs-node_id AND spras = @lv_langu.
+      LOOP AT lt_node_refs INTO DATA(ls_ref_node).
+        APPEND VALUE #( node_id = ls_ref_node-node_id ) TO lt_matched_nodes.
+      ENDLOOP.
     ENDIF.
 
     SORT lt_matched_nodes BY node_id.
     DELETE ADJACENT DUPLICATES FROM lt_matched_nodes COMPARING node_id.
+
+    TYPES: BEGIN OF ty_activity_info,
+             activity       TYPE string,
+             transaction    TYPE string,
+             object_name    TYPE string,
+             object_type    TYPE string,
+             maint_transact TYPE string,
+           END OF ty_activity_info.
+    TYPES ty_activity_info_tab TYPE STANDARD TABLE OF ty_activity_info WITH DEFAULT KEY.
 
     TYPES: BEGIN OF ty_result,
              node_id             TYPE string,
              node_text           TYPE string,
              spro_path           TYPE string_table,
              maintenance_objects TYPE string_table,
+             activities          TYPE ty_activity_info_tab,
            END OF ty_result.
     DATA: lt_results TYPE TABLE OF ty_result,
           ls_result  TYPE ty_result,
@@ -384,6 +582,16 @@ CLASS ZCL_SAP_DEV_RPC IMPLEMENTATION.
       CLEAR: ls_result, lt_path.
       ls_result-node_id   = ls_matched-node_id.
       ls_result-node_text = ls_matched-text.
+
+      IF ls_result-node_text IS INITIAL.
+        SELECT SINGLE text FROM tnodeimgt INTO @ls_result-node_text WHERE node_id = @ls_matched-node_id AND spras = @lv_langu.
+        IF ls_result-node_text IS INITIAL.
+          SELECT SINGLE ref_object FROM tnodeimgr INTO @DATA(lv_ref_obj) WHERE node_id = @ls_matched-node_id.
+          IF sy-subrc = 0.
+            SELECT SINGLE text FROM cus_imgact INTO @ls_result-node_text WHERE activity = @lv_ref_obj AND spras = @lv_langu.
+          ENDIF.
+        ENDIF.
+      ENDIF.
 
       DATA(lv_current_node) = ls_matched-node_id.
       DO 20 TIMES.
@@ -406,27 +614,132 @@ CLASS ZCL_SAP_DEV_RPC IMPLEMENTATION.
 
       SELECT ref_object FROM tnodeimgr INTO TABLE @DATA(lt_refs) WHERE node_id = @ls_matched-node_id.
 
-      DATA: lr_activities TYPE RANGE OF tnodeimgr-ref_object.
+      DATA: lr_activities TYPE RANGE OF cus_actobj-act_id,
+            lv_ref_act    TYPE cus_actobj-act_id.
       CLEAR lr_activities.
       LOOP AT lt_refs INTO DATA(ls_ref).
-        APPEND VALUE #( sign = 'I' option = 'EQ' low = ls_ref-ref_object ) TO lr_activities.
+        lv_ref_act = ls_ref-ref_object.
+        IF lv_ref_act IS NOT INITIAL.
+          APPEND VALUE #( sign = 'I' option = 'EQ' low = lv_ref_act ) TO lr_activities.
+        ENDIF.
       ENDLOOP.
 
       IF lr_activities IS NOT INITIAL.
-        SELECT objectname
+        TYPES: BEGIN OF ty_actobj,
+                 act_id         TYPE cus_actobj-act_id,
+                 objectname     TYPE cus_actobj-objectname,
+                 objecttype     TYPE cus_actobj-objecttype,
+                 maint_transact TYPE cus_actobj-tcode,
+               END OF ty_actobj.
+        DATA: lt_actobj TYPE TABLE OF ty_actobj.
+
+        TYPES: BEGIN OF ty_imgach,
+                 activity   TYPE cus_imgach-activity,
+                 tcode      TYPE cus_imgach-tcode,
+                 c_activity TYPE cus_imgach-c_activity,
+               END OF ty_imgach.
+        DATA: lt_imgach TYPE TABLE OF ty_imgach.
+
+        SELECT act_id, objectname, objecttype, tcode AS maint_transact
           FROM cus_actobj
-          INTO TABLE @DATA(lt_objs)
+          INTO TABLE @lt_actobj
           WHERE act_id IN @lr_activities.
 
-        SELECT a~objectname
-          FROM cus_actobj AS a
-          INNER JOIN cus_imgach AS b ON a~act_id = b~c_activity
-          APPENDING TABLE @lt_objs
-          WHERE b~activity IN @lr_activities.
+        SELECT activity, tcode, c_activity
+          FROM cus_imgach
+          INTO TABLE @lt_imgach
+          WHERE activity IN @lr_activities.
 
-        LOOP AT lt_objs INTO DATA(ls_obj).
-          APPEND ls_obj-objectname TO ls_result-maintenance_objects.
+        DATA: lr_sub_acts TYPE RANGE OF cus_actobj-act_id,
+              lv_sub_act  TYPE cus_actobj-act_id.
+        CLEAR lr_sub_acts.
+        LOOP AT lt_imgach INTO DATA(ls_ach_sub) WHERE c_activity IS NOT INITIAL.
+          lv_sub_act = ls_ach_sub-c_activity.
+          APPEND VALUE #( sign = 'I' option = 'EQ' low = lv_sub_act ) TO lr_sub_acts.
         ENDLOOP.
+
+        IF lr_sub_acts IS NOT INITIAL.
+          SELECT act_id, objectname, objecttype, tcode AS maint_transact
+            FROM cus_actobj
+            APPENDING TABLE @lt_actobj
+            WHERE act_id IN @lr_sub_acts.
+        ENDIF.
+
+        LOOP AT lt_refs INTO DATA(ls_ref_item).
+          DATA: lv_ref_id TYPE string.
+          lv_ref_id = ls_ref_item-ref_object.
+          DATA: lv_matched_act TYPE abap_bool.
+          lv_matched_act = abap_false.
+
+          LOOP AT lt_imgach INTO DATA(ls_ach) WHERE activity = lv_ref_id.
+            IF ls_ach-c_activity IS NOT INITIAL.
+              LOOP AT lt_actobj INTO DATA(ls_ao_sub) WHERE act_id = ls_ach-c_activity.
+                lv_matched_act = abap_true.
+                APPEND VALUE #(
+                  activity       = lv_ref_id
+                  transaction    = |{ ls_ach-tcode }|
+                  object_name    = |{ ls_ao_sub-objectname }|
+                  object_type    = |{ ls_ao_sub-objecttype }|
+                  maint_transact = |{ ls_ao_sub-maint_transact }| ) TO ls_result-activities.
+                IF ls_ao_sub-objectname IS NOT INITIAL.
+                  APPEND |{ ls_ao_sub-objectname }| TO ls_result-maintenance_objects.
+                ENDIF.
+              ENDLOOP.
+            ELSE.
+              LOOP AT lt_actobj INTO DATA(ls_ao_dir) WHERE act_id = lv_ref_id.
+                lv_matched_act = abap_true.
+                APPEND VALUE #(
+                  activity       = lv_ref_id
+                  transaction    = |{ ls_ach-tcode }|
+                  object_name    = |{ ls_ao_dir-objectname }|
+                  object_type    = |{ ls_ao_dir-objecttype }|
+                  maint_transact = |{ ls_ao_dir-maint_transact }| ) TO ls_result-activities.
+                IF ls_ao_dir-objectname IS NOT INITIAL.
+                  APPEND |{ ls_ao_dir-objectname }| TO ls_result-maintenance_objects.
+                ENDIF.
+              ENDLOOP.
+            ENDIF.
+
+            IF lv_matched_act = abap_false.
+              lv_matched_act = abap_true.
+              APPEND VALUE #(
+                activity       = lv_ref_id
+                transaction    = |{ ls_ach-tcode }|
+                object_name    = ''
+                object_type    = ''
+                maint_transact = '' ) TO ls_result-activities.
+            ENDIF.
+          ENDLOOP.
+
+          IF lv_matched_act = abap_false.
+            LOOP AT lt_actobj INTO DATA(ls_ao_alone) WHERE act_id = lv_ref_id.
+              lv_matched_act = abap_true.
+              APPEND VALUE #(
+                activity       = lv_ref_id
+                transaction    = ''
+                object_name    = |{ ls_ao_alone-objectname }|
+                object_type    = |{ ls_ao_alone-objecttype }|
+                maint_transact = |{ ls_ao_alone-maint_transact }| ) TO ls_result-activities.
+              IF ls_ao_alone-objectname IS NOT INITIAL.
+                APPEND |{ ls_ao_alone-objectname }| TO ls_result-maintenance_objects.
+              ENDIF.
+            ENDLOOP.
+          ENDIF.
+
+          IF lv_matched_act = abap_false.
+            APPEND VALUE #(
+              activity       = lv_ref_id
+              transaction    = ''
+              object_name    = ''
+              object_type    = ''
+              maint_transact = '' ) TO ls_result-activities.
+          ENDIF.
+        ENDLOOP.
+
+        SORT ls_result-maintenance_objects.
+        DELETE ADJACENT DUPLICATES FROM ls_result-maintenance_objects.
+        SORT ls_result-activities BY activity transaction object_name object_type maint_transact.
+        DELETE ADJACENT DUPLICATES FROM ls_result-activities COMPARING activity transaction object_name object_type maint_transact.
       ENDIF.
 
       APPEND ls_result TO lt_results.
@@ -600,7 +913,8 @@ CLASS ZCL_SAP_DEV_RPC IMPLEMENTATION.
     ELSE.
       CASE lv_type_key.
         WHEN 'PROG' OR 'REPT'.
-          SELECT DISTINCT spras FROM t002 INTO TABLE @lt_langs.
+          SELECT DISTINCT spras FROM t002 INTO TABLE @lt_langs
+            WHERE spras >= 'A' AND spras <= 'Z'.
         WHEN 'DTEL'.
           SELECT DISTINCT ddlanguage FROM dd04t INTO TABLE @lt_langs
             WHERE rollname = @lv_name_key AND as4local = 'A'.
@@ -621,6 +935,10 @@ CLASS ZCL_SAP_DEV_RPC IMPLEMENTATION.
             WHERE tabname = @lv_name_key AND as4local = 'A'.
       ENDCASE.
     ENDIF.
+
+    DELETE lt_langs WHERE table_line < 'A' OR table_line > 'Z'.
+    SORT lt_langs.
+    DELETE ADJACENT DUPLICATES FROM lt_langs.
 
     IF lt_langs IS INITIAL.
       APPEND sy-langu TO lt_langs.
@@ -974,7 +1292,7 @@ CLASS ZCL_SAP_DEV_RPC IMPLEMENTATION.
 
       IF lt_find_results IS NOT INITIAL.
         CLEAR: ls_match.
-        
+
         " Map program name back to a readable ADT URI format
         ls_match-parent_uri  = |/sap/bc/adt/programs/programs/{ lv_prog }|.
         ls_match-text_query  = ls_payload-query.
@@ -1036,5 +1354,340 @@ CLASS ZCL_SAP_DEV_RPC IMPLEMENTATION.
 
   METHOD get_object_handler.
     ro_handler = lcl_handler_factory=>get( iv_object_type ).
+  ENDMETHOD.
+
+  METHOD resolve_target_to_view.
+    DATA: lv_target TYPE string.
+    lv_target = iv_target.
+    TRANSLATE lv_target TO UPPER CASE.
+
+    " 1. Check if it's a view cluster
+    SELECT SINGLE vclname FROM vcldir WHERE vclname = @lv_target INTO @DATA(lv_vclname).
+    IF sy-subrc = 0.
+      ev_viewname = lv_vclname.
+      ev_is_cluster = abap_true.
+      RETURN.
+    ENDIF.
+
+    " 2. Check if it's a table/view name directly
+    SELECT SINGLE tabname FROM tvdir WHERE tabname = @lv_target INTO @DATA(lv_tabname).
+    IF sy-subrc = 0.
+      ev_viewname = lv_tabname.
+      ev_is_cluster = abap_false.
+      RETURN.
+    ENDIF.
+
+    " 3. Try to resolve via SPRO tcode
+    SELECT SINGLE activity FROM cus_imgach WHERE tcode = @lv_target INTO @DATA(lv_activity).
+    IF sy-subrc = 0.
+      SELECT SINGLE objectname, objecttype FROM cus_actobj WHERE act_id = @lv_activity INTO (@DATA(lv_objname), @DATA(lv_objtype)).
+      IF sy-subrc = 0.
+        ev_viewname = lv_objname.
+        IF lv_objtype = 'C'.
+          ev_is_cluster = abap_true.
+        ELSE.
+          ev_is_cluster = abap_false.
+        ENDIF.
+        RETURN.
+      ENDIF.
+    ENDIF.
+
+    " Fallback
+    ev_viewname = lv_target.
+    ev_is_cluster = abap_false.
+  ENDMETHOD.
+
+  METHOD get_sap_timestamps.
+    CLEAR: ev_last_date, ev_last_time, ev_gen_date, ev_gen_time.
+
+    IF iv_is_cluster = abap_true.
+      SELECT SINGLE changedate FROM vcldir WHERE vclname = @iv_viewname INTO @ev_last_date.
+    ELSE.
+      SELECT SINGLE as4date, as4time FROM dd02l WHERE tabname = @iv_viewname INTO ( @ev_last_date, @ev_last_time ).
+      SELECT SINGLE gendate, gentime FROM tvdir WHERE tabname = @iv_viewname INTO ( @ev_gen_date, @ev_gen_time ).
+    ENDIF.
+  ENDMETHOD.
+
+  METHOD handle_get_custom_schema.
+    TYPES: BEGIN OF ty_payload,
+             customizing_target TYPE string,
+           END OF ty_payload.
+    DATA: ls_payload TYPE ty_payload.
+
+    /ui2/cl_json=>deserialize( EXPORTING json = iv_payload CHANGING data = ls_payload ).
+
+    DATA: lv_viewname   TYPE tabname,
+          lv_is_cluster TYPE abap_bool.
+
+    resolve_target_to_view(
+      EXPORTING iv_target = ls_payload-customizing_target
+      IMPORTING ev_viewname = lv_viewname
+                ev_is_cluster = lv_is_cluster ).
+
+    TYPES: BEGIN OF ty_enum,
+             value TYPE string,
+             text  TYPE string,
+           END OF ty_enum.
+    TYPES: BEGIN OF ty_field,
+             name        TYPE string,
+             key         TYPE abap_bool,
+             type        TYPE string,
+             length      TYPE i,
+             label       TYPE string,
+             check_table TYPE string,
+             enum_values TYPE STANDARD TABLE OF ty_enum WITH DEFAULT KEY,
+           END OF ty_field.
+    TYPES: BEGIN OF ty_gui_func,
+             fcode TYPE string,
+             text  TYPE string,
+           END OF ty_gui_func.
+     TYPES: BEGIN OF ty_subview,
+              view_name         TYPE string,
+              fields            TYPE STANDARD TABLE OF ty_field WITH DEFAULT KEY,
+              overview_screen   TYPE string,
+              detail_screen     TYPE string,
+              client_dependency TYPE string,
+            END OF ty_subview.
+     TYPES: BEGIN OF ty_schema,
+              view_name                TYPE string,
+              is_view_cluster          TYPE abap_bool,
+              has_custom_screen_checks TYPE abap_bool,
+              maintenance_type         TYPE string,
+              overview_screen          TYPE string,
+              detail_screen            TYPE string,
+              function_group           TYPE string,
+              client_dependency        TYPE string,
+              fields                   TYPE STANDARD TABLE OF ty_field WITH DEFAULT KEY,
+              gui_functions            TYPE STANDARD TABLE OF ty_gui_func WITH DEFAULT KEY,
+              subviews                 TYPE STANDARD TABLE OF ty_subview WITH DEFAULT KEY,
+            END OF ty_schema.
+
+     DATA: ls_schema TYPE ty_schema.
+     ls_schema-view_name = lv_viewname.
+     ls_schema-is_view_cluster = lv_is_cluster.
+
+     DATA: lt_ddic_fields TYPE STANDARD TABLE OF dd03l WITH DEFAULT KEY,
+           ls_ddic        TYPE dd03l,
+           ls_field       TYPE ty_field,
+           lv_label       TYPE dd04t-ddtext,
+           lt_enums       TYPE STANDARD TABLE OF ty_enum WITH DEFAULT KEY.
+
+     DEFINE resolve_view_fields.
+       CLEAR &2.
+       SELECT fieldname, keyflag, rollname, domname, datatype, leng, checktable
+         FROM dd03l
+         WHERE tabname = @&1
+           AND fieldname NOT LIKE '.INCL%'
+           AND fieldname <> 'MANDT'
+         INTO CORRESPONDING FIELDS OF TABLE @lt_ddic_fields.
+
+       LOOP AT lt_ddic_fields INTO ls_ddic.
+         CLEAR ls_field.
+         ls_field-name = ls_ddic-fieldname.
+         IF ls_ddic-keyflag = 'X'.
+           ls_field-key = abap_true.
+         ELSE.
+           ls_field-key = abap_false.
+         ENDIF.
+         ls_field-type = ls_ddic-datatype.
+         ls_field-length = ls_ddic-leng.
+         ls_field-check_table = ls_ddic-checktable.
+
+         CLEAR lv_label.
+         SELECT SINGLE ddtext FROM dd04t WHERE rollname = @ls_ddic-rollname AND ddlanguage = 'E' INTO @lv_label.
+         IF sy-subrc <> 0.
+           ls_field-label = ls_ddic-fieldname.
+         ELSE.
+           ls_field-label = lv_label.
+         ENDIF.
+
+         IF ls_ddic-domname IS NOT INITIAL.
+           CLEAR lt_enums.
+           SELECT domvalue_l AS value, ddtext AS text
+             FROM dd07t
+             WHERE domname = @ls_ddic-domname AND ddlanguage = 'E'
+             INTO CORRESPONDING FIELDS OF TABLE @lt_enums.
+           ls_field-enum_values = lt_enums.
+         ENDIF.
+
+         APPEND ls_field TO &2.
+       ENDLOOP.
+     END-OF-DEFINITION.
+
+     IF lv_is_cluster = abap_true.
+       " For clusters, fetch sub-views list
+       SELECT object FROM vclstruc WHERE vclname = @lv_viewname INTO TABLE @DATA(lt_subviews).
+       LOOP AT lt_subviews INTO DATA(ls_subview_item).
+         DATA: ls_sub_item TYPE ty_subview.
+         CLEAR ls_sub_item.
+         ls_sub_item-view_name = ls_subview_item-object.
+
+         " Resolve fields for subview
+         resolve_view_fields ls_subview_item-object ls_sub_item-fields.
+
+         " Fetch tvdir details for subview
+         SELECT SINGLE liste, detail, cltcode FROM tvdir 
+           WHERE tabname = @ls_subview_item-object 
+           INTO (@ls_sub_item-overview_screen, @ls_sub_item-detail_screen, @ls_sub_item-client_dependency).
+
+         APPEND ls_sub_item TO ls_schema-subviews.
+       ENDLOOP.
+     ELSE.
+       " Fetch table/view fields via macro
+       resolve_view_fields lv_viewname ls_schema-fields.
+     ENDIF.
+
+      " Detect custom screen checks via TVDIR list/detail screens
+      DATA: ls_tvdir TYPE tvdir.
+      SELECT SINGLE type, liste, detail, area, cltcode FROM tvdir WHERE tabname = @lv_viewname INTO CORRESPONDING FIELDS OF @ls_tvdir.
+      IF sy-subrc = 0.
+        ls_schema-maintenance_type  = ls_tvdir-type.
+        ls_schema-overview_screen   = ls_tvdir-liste.
+        ls_schema-detail_screen     = ls_tvdir-detail.
+        ls_schema-function_group    = ls_tvdir-area.
+        ls_schema-client_dependency = ls_tvdir-cltcode.
+        IF ls_tvdir-liste IS NOT INITIAL OR ls_tvdir-detail IS NOT INITIAL.
+          ls_schema-has_custom_screen_checks = abap_true.
+        ENDIF.
+
+        " Extract GUI function codes if function group is available
+        IF ls_tvdir-area IS NOT INITIAL.
+          DATA: lv_prog_name TYPE trdir-name.
+          lv_prog_name = |SAPL{ ls_tvdir-area }|.
+          DATA: lt_fun_list TYPE TABLE OF rsmpe_funl,
+                lt_gui_funcs TYPE TABLE OF ty_gui_func,
+                ls_gui_func  TYPE ty_gui_func.
+          CALL FUNCTION 'RS_CUA_GET_FUNCTIONS'
+            EXPORTING
+              program       = lv_prog_name
+            TABLES
+              function_list = lt_fun_list
+            EXCEPTIONS
+              OTHERS        = 1.
+          IF sy-subrc <> 0 OR lt_fun_list IS INITIAL.
+            CALL FUNCTION 'RS_CUA_GET_FUNCTIONS'
+              EXPORTING
+                program       = 'SAPLSVIM'
+              TABLES
+                function_list = lt_fun_list
+              EXCEPTIONS
+                OTHERS        = 1.
+          ENDIF.
+          IF sy-subrc = 0.
+            LOOP AT lt_fun_list INTO DATA(ls_fun).
+              CLEAR ls_gui_func.
+              ls_gui_func-fcode = ls_fun-fcode.
+              ls_gui_func-text  = ls_fun-text.
+              APPEND ls_gui_func TO lt_gui_funcs.
+            ENDLOOP.
+            ls_schema-gui_functions = lt_gui_funcs.
+          ENDIF.
+        ENDIF.
+      ENDIF.
+
+    rv_json = /ui2/cl_json=>serialize( data = ls_schema ).
+  ENDMETHOD.
+
+  METHOD handle_maintain_custom.
+    DATA: lv_class  TYPE string VALUE 'ZCL_SAP_DEV_DEV_HELPER',
+          lv_method TYPE string VALUE 'DISPATCH'.
+    cl_abap_typedescr=>describe_by_name(
+      EXPORTING  p_name         = lv_class
+      RECEIVING  p_descr_ref    = DATA(lo_descr)
+      EXCEPTIONS type_not_found = 1 ).
+    IF sy-subrc = 0.
+      TRY.
+          CALL METHOD (lv_class)=>(lv_method)
+            EXPORTING
+              iv_action  = 'HANDLE_MAINTAIN_CUSTOM'
+              iv_payload = iv_payload
+              io_rpc     = me
+            RECEIVING
+              rv_json    = rv_json.
+        CATCH cx_root INTO DATA(lx_root).
+          rv_json = |\{"success":false,"error": "Failed to execute dev helper: { escape( val = lx_root->get_text( ) format = cl_abap_format=>e_json_string ) }"\}|.
+      ENDTRY.
+    ELSE.
+      rv_json = '{"success":false,"error": "Write operations are disabled on this system."}'.
+    ENDIF.
+  ENDMETHOD.
+
+
+
+
+  METHOD handle_get_custom_metadata.
+    TYPES: BEGIN OF ty_payload,
+             customizing_target TYPE string,
+           END OF ty_payload.
+    DATA: ls_payload TYPE ty_payload.
+    
+    TRY.
+        /ui2/cl_json=>deserialize( EXPORTING json = iv_payload CHANGING data = ls_payload ).
+        DATA(lv_target) = ls_payload-customizing_target.
+        TRANSLATE lv_target TO UPPER CASE.
+        
+        DATA: ls_tvdir TYPE tvdir.
+        SELECT SINGLE * FROM tvdir INTO @ls_tvdir WHERE tabname = @lv_target.
+        
+        DATA: h_l TYPE d020s, f_l TYPE TABLE OF d021s, e_l TYPE TABLE OF d022s, m_l TYPE TABLE OF d023s.
+        DATA: lv_id_l TYPE c LENGTH 44.
+        IF ls_tvdir-liste IS NOT INITIAL.
+          lv_id_l = 'SAPL' && ls_tvdir-area.
+          DATA: lv_liste_numc TYPE numc4.
+          lv_liste_numc = ls_tvdir-liste.
+          lv_id_l+40(4) = lv_liste_numc.
+          IMPORT DYNPRO h_l f_l e_l m_l ID lv_id_l.
+        ENDIF.
+        
+        DATA: h_d TYPE d020s, f_d TYPE TABLE OF d021s, e_d TYPE TABLE OF d022s, m_d TYPE TABLE OF d023s.
+        DATA: lv_id_d TYPE c LENGTH 44.
+        IF ls_tvdir-detail IS NOT INITIAL.
+          lv_id_d = 'SAPL' && ls_tvdir-area.
+          DATA: lv_detail_numc TYPE numc4.
+          lv_detail_numc = ls_tvdir-detail.
+          lv_id_d+40(4) = lv_detail_numc.
+          IMPORT DYNPRO h_d f_d e_d m_d ID lv_id_d.
+        ENDIF.
+        
+        TYPES: BEGIN OF ty_field,
+                 fnam TYPE string,
+                 stxt TYPE string,
+               END OF ty_field.
+        DATA: lt_f_l_out TYPE TABLE OF ty_field,
+              lt_f_d_out TYPE TABLE OF ty_field.
+        LOOP AT f_l INTO DATA(ls_f_l) WHERE fnam IS NOT INITIAL.
+          DATA: ls_f_l_out TYPE ty_field.
+          ls_f_l_out-fnam = ls_f_l-fnam.
+          ls_f_l_out-stxt = ls_f_l-stxt.
+          APPEND ls_f_l_out TO lt_f_l_out.
+        ENDLOOP.
+        LOOP AT f_d INTO DATA(ls_f_d) WHERE fnam IS NOT INITIAL.
+          DATA: ls_f_d_out TYPE ty_field.
+          ls_f_d_out-fnam = ls_f_d-fnam.
+          ls_f_d_out-stxt = ls_f_d-stxt.
+          APPEND ls_f_d_out TO lt_f_d_out.
+        ENDLOOP.
+        
+        DATA: BEGIN OF ls_res,
+                success    TYPE abap_bool,
+                type       TYPE string,
+                liste      TYPE string,
+                detail     TYPE string,
+                area       TYPE string,
+                f_liste    LIKE lt_f_l_out,
+                f_detail   LIKE lt_f_d_out,
+              END OF ls_res.
+        ls_res-success = abap_true.
+        ls_res-type   = ls_tvdir-type.
+        ls_res-liste  = ls_tvdir-liste.
+        ls_res-detail = ls_tvdir-detail.
+        ls_res-area   = ls_tvdir-area.
+        ls_res-f_liste  = lt_f_l_out.
+        ls_res-f_detail = lt_f_d_out.
+        
+        rv_json = /ui2/cl_json=>serialize( data = ls_res ).
+      CATCH cx_root INTO DATA(lx_root).
+        rv_json = |\{"success":false,"error":"{ lx_root->get_text( ) }"\}|.
+    ENDTRY.
   ENDMETHOD.
 ENDCLASS.

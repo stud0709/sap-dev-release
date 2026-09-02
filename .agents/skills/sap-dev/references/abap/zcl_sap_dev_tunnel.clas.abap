@@ -38,7 +38,28 @@ CLASS ZCL_SAP_DEV_TUNNEL IMPLEMENTATION.
     APPEND `    <script src="https://cdn.jsdelivr.net/npm/nostr-tools@1.17.0/lib/nostr.bundle.js"></script>` TO lt_html.
     APPEND `</head>` TO lt_html.
     APPEND `<body>` TO lt_html.
-    APPEND `    <div class="card">` TO lt_html.
+    APPEND `    <!-- IE compatibility mode warning banner (hidden by default) -->` TO lt_html.
+    APPEND `    <div id="ieWarning" style="display:none; background:#fee2e2; color:#991b1b; padding:24px; border-radius:8px; border:1px solid #fca5a5; font-family:ui-sans-serif, system-ui, sans-serif; max-width:800px; margin:40px auto;">` TO lt_html.
+    APPEND `        <h2 style="margin-top:0; color:#991b1b;">⚠️ Internet Explorer Mode Detected</h2>` TO lt_html.
+    APPEND `        <p style="margin-bottom:0; font-size:15px; line-height:1.5;">` TO lt_html.
+    APPEND `            This page is running in <strong>Internet Explorer Compatibility Mode</strong>. Modern WebSocket tunnels cannot run in this mode.` TO lt_html.
+    APPEND `            Please copy this URL and open it in a modern browser (such as Google Chrome or Microsoft Edge) with IE mode disabled.` TO lt_html.
+    APPEND `        </p>` TO lt_html.
+    APPEND `    </div>` TO lt_html.
+    APPEND `    ` TO lt_html.
+    APPEND `    <!-- Insecure HTTP context soft warning banner (hidden by default) -->` TO lt_html.
+    APPEND `    <div id="secureContextWarning" style="display:none; background:#fffbeb; color:#92400e; padding:16px;` TO lt_html.
+    APPEND `        border-radius:8px; border:1px solid #fcd34d; font-family:ui-sans-serif, system-ui, sans-serif;` TO lt_html.
+    APPEND `        max-width:800px; margin:20px auto 20px auto;">` TO lt_html.
+    APPEND `        <p style="margin:0; font-size:14px; line-height:1.5;">` TO lt_html.
+    APPEND `            <strong>⚠️ HTTP Connection:</strong> You are connected via HTTP. Prefer HTTPS (refer to transaction SMICM, menu Goto -> Services to discover the HTTPS port). ` TO lt_html.
+    APPEND `            If no HTTPS is available, see <a href="https://github.com/stud0709/sap-dev-release/wiki/"` TO lt_html.
+    APPEND `                style="color:#b45309; font-weight:bold; text-decoration:underline;" target="_blank">` TO lt_html.
+    APPEND `                Connecting-to-Remote-SAP-Sessions#b-insecure-http-contexts</a>` TO lt_html.
+    APPEND `        </p>` TO lt_html.
+    APPEND `    </div>` TO lt_html.
+    APPEND `    ` TO lt_html.
+    APPEND `    <div id="mainContent" class="card">` TO lt_html.
     APPEND |        <h2>SAP ADT Tunnel to { sy-sysid } (Client { sy-mandt })</h2>| TO lt_html.
     APPEND `        <p>Paste the <strong>Tunnel Pairing Token</strong> from your local sap-bridge dashboard:</p>` TO lt_html.
     APPEND `        <textarea id="tokenInput" placeholder="Paste Base64 Tunnel Pairing Token here..."></textarea>` TO lt_html.
@@ -59,13 +80,34 @@ CLASS ZCL_SAP_DEV_TUNNEL IMPLEMENTATION.
     APPEND `        <div style="margin-top:20px;">` TO lt_html.
     APPEND `            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">` TO lt_html.
     APPEND `                <label style="font-size:14px; font-weight:600; color:#374151;">Live Activity Log:</label>` TO lt_html.
-    APPEND `                <button type="button" onclick="clearLogs()"` TO lt_html.
-    APPEND `                    style="background:#e5e7eb; color:#374151; border:none; padding:4px 10px; font-size:12px; border-radius:4px; cursor:pointer;">Clear</button>` TO lt_html.
+    APPEND `                <div style="display:flex; gap:10px; align-items:center;">` TO lt_html.
+    APPEND `                    <button type="button" onclick="beamActivityLog()"` TO lt_html.
+    APPEND `                        style="background:#e5e7eb; color:#374151; border:none; padding:4px 10px; font-size:12px; border-radius:4px; cursor:pointer;">Send</button>` TO lt_html.
+    APPEND `                    <button type="button" onclick="copyLogsToClipboard()"` TO lt_html.
+    APPEND `                        style="background:#e5e7eb; color:#374151; border:none; padding:4px 10px; font-size:12px; border-radius:4px; cursor:pointer;">Copy</button>` TO lt_html.
+    APPEND `                    <button type="button" onclick="clearLogs()"` TO lt_html.
+    APPEND `                        style="background:#e5e7eb; color:#374151; border:none; padding:4px 10px; font-size:12px; border-radius:4px; cursor:pointer;">Clear</button>` TO lt_html.
+    APPEND `                </div>` TO lt_html.
     APPEND `            </div>` TO lt_html.
     APPEND `            <div id="logBox" style="background:#1e293b; color:#e2e8f0; font-family:monospace; font-size:12px; padding:12px;` TO lt_html.
     APPEND `                height:200px; overflow-y:auto; border-radius:6px; border:1px solid #334155; white-space:pre-wrap; word-break:break-all;">Ready.</div>` TO lt_html.
     APPEND `        </div>` TO lt_html.
     APPEND `    </div>` TO lt_html.
+    APPEND `` TO lt_html.
+    APPEND `    <script>` TO lt_html.
+    APPEND `        // Safe ES5 script to detect IE / Compatibility Mode early` TO lt_html.
+    APPEND `        if (typeof document.documentMode !== 'undefined' || navigator.userAgent.indexOf('MSIE') !== -1 || navigator.userAgent.indexOf('Trident/') !== -1) {` TO lt_html.
+    APPEND `            document.getElementById('mainContent').style.display = 'none';` TO lt_html.
+    APPEND `            document.getElementById('ieWarning').style.display = 'block';` TO lt_html.
+    APPEND `        } else {` TO lt_html.
+    APPEND `            // Check for insecure context (HTTP, not localhost/127.0.0.1)` TO lt_html.
+    APPEND `            var isHttp = window.location.protocol === 'http:';` TO lt_html.
+    APPEND `            var isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';` TO lt_html.
+    APPEND `            if (isHttp && !isLocal) {` TO lt_html.
+    APPEND `                document.getElementById('secureContextWarning').style.display = 'block';` TO lt_html.
+    APPEND `            }` TO lt_html.
+    APPEND `        }` TO lt_html.
+    APPEND `    </script>` TO lt_html.
     APPEND `` TO lt_html.
     APPEND `    <script>` TO lt_html.
     APPEND |        const sapSystem = '{ sy-sysid }';| TO lt_html.
@@ -75,14 +117,63 @@ CLASS ZCL_SAP_DEV_TUNNEL IMPLEMENTATION.
     APPEND `        let reconnectTimeouts = new Map(); // relayUrl -> timeout ID` TO lt_html.
     APPEND `        let responseCache = new Map(); // reqId -> array of chunk objects (30s TTL)` TO lt_html.
     APPEND `        let processedRequestIds = new Set();` TO lt_html.
+    APPEND `        let processedAckIds = new Set();` TO lt_html.
     APPEND `        let activeTopic = '';` TO lt_html.
     APPEND `        let activeRelays = [];` TO lt_html.
     APPEND `        let pingInterval = null;` TO lt_html.
+    APPEND `        let heartbeatWorker = null;` TO lt_html.
     APPEND `        let connectionTime = Math.floor(Date.now() / 1000);` TO lt_html.
     APPEND `        let incomingChunks = new Map();` TO lt_html.
     APPEND `        let incomingReceived = new Map();` TO lt_html.
     APPEND `        let incomingHashes = new Map();` TO lt_html.
+    APPEND `        let activeCryptoKey = null;` TO lt_html.
     APPEND `        ` TO lt_html.
+    APPEND `        async function importPskKey(keyHex) {` TO lt_html.
+    APPEND `            activeCryptoKey = null;` TO lt_html.
+    APPEND `            if (!keyHex || keyHex.length !== 64) {` TO lt_html.
+    APPEND `                logUI('ERR', 'Encryption key missing: Unencrypted tunnel mode is disabled.');` TO lt_html.
+    APPEND `                throw new Error('Encryption key missing: Unencrypted tunnel connections are prohibited.');` TO lt_html.
+    APPEND `            }` TO lt_html.
+    APPEND `            try {` TO lt_html.
+    APPEND `                const bytes = new Uint8Array(32);` TO lt_html.
+    APPEND `                for (let i = 0; i < 32; i++) bytes[i] = parseInt(keyHex.substr(i * 2, 2), 16);` TO lt_html.
+    APPEND `                activeCryptoKey = await crypto.subtle.importKey('raw', bytes, { name: 'AES-GCM' }, false, ['encrypt', 'decrypt']);` TO lt_html.
+    APPEND `                logUI('INFO', 'E2EE AES-256-GCM encryption enabled.');` TO lt_html.
+    APPEND `            } catch (e) {` TO lt_html.
+    APPEND `                console.error('Failed to import AES key:', e);` TO lt_html.
+    APPEND `                logUI('ERR', 'Failed to import AES key: ' + e.message);` TO lt_html.
+    APPEND `                throw e;` TO lt_html.
+    APPEND `            }` TO lt_html.
+    APPEND `        }` TO lt_html.
+    APPEND `` TO lt_html.
+    APPEND `        async function encryptPayload(payloadStr) {` TO lt_html.
+    APPEND `            if (!activeCryptoKey) throw new Error('Encryption key not initialized');` TO lt_html.
+    APPEND `            const iv = crypto.getRandomValues(new Uint8Array(12));` TO lt_html.
+    APPEND `            const encoded = new TextEncoder().encode(payloadStr);` TO lt_html.
+    APPEND `            const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv }, activeCryptoKey, encoded);` TO lt_html.
+    APPEND `            const combined = new Uint8Array(12 + ciphertext.byteLength);` TO lt_html.
+    APPEND `            combined.set(iv, 0);` TO lt_html.
+    APPEND `            combined.set(new Uint8Array(ciphertext), 12);` TO lt_html.
+    APPEND `            return await arrayBufferToBase64(combined.buffer);` TO lt_html.
+    APPEND `        }` TO lt_html.
+    APPEND `` TO lt_html.
+    APPEND `        async function decryptPayload(contentStr) {` TO lt_html.
+    APPEND `            if (!activeCryptoKey) return null;` TO lt_html.
+    APPEND `            try {` TO lt_html.
+    APPEND `                const bin = atob(contentStr);` TO lt_html.
+    APPEND `                const data = new Uint8Array(bin.length);` TO lt_html.
+    APPEND `                for (let i = 0; i < bin.length; i++) data[i] = bin.charCodeAt(i);` TO lt_html.
+    APPEND `                if (data.length < 28) return null;` TO lt_html.
+    APPEND `                const iv = data.slice(0, 12);` TO lt_html.
+    APPEND `                const ciphertext = data.slice(12);` TO lt_html.
+    APPEND `                const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: iv }, activeCryptoKey, ciphertext);` TO lt_html.
+    APPEND `                return new TextDecoder().decode(decrypted);` TO lt_html.
+    APPEND `            } catch (e) {` TO lt_html.
+    APPEND `                logUI('ERR', 'Decryption failed: AEAD auth tag mismatch (unauthorized event dropped)');` TO lt_html.
+    APPEND `                return null;` TO lt_html.
+    APPEND `            }` TO lt_html.
+    APPEND `        }` TO lt_html.
+    APPEND `` TO lt_html.
     APPEND `        function updateUIStatus() {` TO lt_html.
     APPEND `            const ui = document.getElementById('statusUI');` TO lt_html.
     APPEND `            if (!ui) return;` TO lt_html.
@@ -117,11 +208,138 @@ CLASS ZCL_SAP_DEV_TUNNEL IMPLEMENTATION.
     APPEND `            const box = document.getElementById('logBox');` TO lt_html.
     APPEND `            if (box) box.innerHTML = '';` TO lt_html.
     APPEND `        }` TO lt_html.
+    APPEND `        function copyLogsToClipboard() {` TO lt_html.
+    APPEND `            const box = document.getElementById('logBox');` TO lt_html.
+    APPEND `            if (!box) return;` TO lt_html.
+    APPEND `            const text = box.innerText;` TO lt_html.
+    APPEND `            if (navigator.clipboard && navigator.clipboard.writeText) {` TO lt_html.
+    APPEND `                navigator.clipboard.writeText(text).then(() => {` TO lt_html.
+    APPEND `                    logUI('INFO', 'Logs copied to clipboard!');` TO lt_html.
+    APPEND `                }).catch(err => {` TO lt_html.
+    APPEND `                    logUI('ERR', 'Failed to copy logs: ' + err.message);` TO lt_html.
+    APPEND `                });` TO lt_html.
+    APPEND `            } else {` TO lt_html.
+    APPEND `                const tempTex = document.createElement('textarea');` TO lt_html.
+    APPEND `                tempTex.value = text;` TO lt_html.
+    APPEND `                document.body.appendChild(tempTex);` TO lt_html.
+    APPEND `                tempTex.select();` TO lt_html.
+    APPEND `                try {` TO lt_html.
+    APPEND `                    document.execCommand('copy');` TO lt_html.
+    APPEND `                    logUI('INFO', 'Logs copied to clipboard!');` TO lt_html.
+    APPEND `                } catch (err) {` TO lt_html.
+    APPEND `                    logUI('ERR', 'Failed to copy logs: ' + err.message);` TO lt_html.
+    APPEND `                }` TO lt_html.
+    APPEND `                document.body.removeChild(tempTex);` TO lt_html.
+    APPEND `            }` TO lt_html.
+    APPEND `        }` TO lt_html.
+    APPEND `        async function beamActivityLog() {` TO lt_html.
+    APPEND `            const box = document.getElementById('logBox');` TO lt_html.
+    APPEND `            if (!box) return;` TO lt_html.
+    APPEND `            const text = box.innerText;` TO lt_html.
+    APPEND `            if (!text || text.trim() === 'Ready.' || text.trim() === '') {` TO lt_html.
+    APPEND `                return alert("No logs to send.");` TO lt_html.
+    APPEND `            }` TO lt_html.
+    APPEND `            const progress = document.getElementById('uploadProgress');` TO lt_html.
+    APPEND `            if (progress) {` TO lt_html.
+    APPEND `                progress.style.display = 'block';` TO lt_html.
+    APPEND `                progress.style.color = '';` TO lt_html.
+    APPEND `                progress.innerText = 'Preparing log payload...';` TO lt_html.
+    APPEND `            }` TO lt_html.
+    APPEND `            try {` TO lt_html.
+    APPEND `                const filename = 'live_activity_log_' + sapSystem.toLowerCase() + '_' + sapClient + '_' + Math.floor(Date.now() / 1000) + '.txt';` TO lt_html.
+    APPEND `                const base64Data = btoa(unescape(encodeURIComponent(text)));` TO lt_html.
+    APPEND `                const fileEnvelope = {` TO lt_html.
+    APPEND `                    type: 'file_upload',` TO lt_html.
+    APPEND `                    id: 'file_log_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),` TO lt_html.
+    APPEND `                    filename: filename,` TO lt_html.
+    APPEND `                    body: base64Data` TO lt_html.
+    APPEND `                };` TO lt_html.
+    APPEND `                const fullJson = JSON.stringify(fileEnvelope);` TO lt_html.
+    APPEND `                const chunkSize = 32768;` TO lt_html.
+    APPEND `                const totalChunks = Math.ceil(fullJson.length / chunkSize);` TO lt_html.
+    APPEND `                const dataBuffer = new TextEncoder().encode(fullJson);` TO lt_html.
+    APPEND `                const hashBuffer = await crypto.subtle.digest('SHA-256', dataBuffer);` TO lt_html.
+    APPEND `                const hashArray = Array.from(new Uint8Array(hashBuffer));` TO lt_html.
+    APPEND `                const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');` TO lt_html.
+    APPEND `                const chunkEvents = [];` TO lt_html.
+    APPEND `                for (let i = 0; i < totalChunks; i++) {` TO lt_html.
+    APPEND `                    const slice = fullJson.substr(i * chunkSize, chunkSize);` TO lt_html.
+    APPEND `                    const chunkPayload = JSON.stringify({` TO lt_html.
+    APPEND `                        type: 'chunk',` TO lt_html.
+    APPEND `                        id: fileEnvelope.id,` TO lt_html.
+    APPEND `                        index: i,` TO lt_html.
+    APPEND `                        total: totalChunks,` TO lt_html.
+    APPEND `                        hash: hashHex,` TO lt_html.
+    APPEND `                        chunk: slice` TO lt_html.
+    APPEND `                    });` TO lt_html.
+    APPEND `                    chunkEvents.push(chunkPayload);` TO lt_html.
+    APPEND `                    publishNostrEvent(chunkPayload);` TO lt_html.
+    APPEND `                }` TO lt_html.
+    APPEND `                responseCache.set(fileEnvelope.id, chunkEvents);` TO lt_html.
+    APPEND `                if (progress) {` TO lt_html.
+    APPEND `                    progress.innerText = 'Log file beamed (' + totalChunks + ' chunk(s)).';` TO lt_html.
+    APPEND `                }` TO lt_html.
+    APPEND `                logUI('INFO', 'Beamed log file: ' + filename + ' (' + totalChunks + ' chunks)');` TO lt_html.
+    APPEND `            } catch (err) {` TO lt_html.
+    APPEND `                logUI('ERR', 'Failed to beam logs: ' + err.message);` TO lt_html.
+    APPEND `                if (progress) {` TO lt_html.
+    APPEND `                    progress.style.color = '#dc2626';` TO lt_html.
+    APPEND `                    progress.innerText = 'Failed to beam logs: ' + err.message;` TO lt_html.
+    APPEND `                }` TO lt_html.
+    APPEND `            }` TO lt_html.
+    APPEND `        }` TO lt_html.
     APPEND `` TO lt_html.
     APPEND `        function sendPingHeartbeat() {` TO lt_html.
     APPEND `            if (!activeTopic) return;` TO lt_html.
-    APPEND `            publishNostrEvent(JSON.stringify({ type: 'ping', systemId: sapSystem, client: sapClient }));` TO lt_html.
+    APPEND `                                                publishNostrEvent(JSON.stringify({ type: 'ping', systemId: sapSystem, client: sapClient, version: 'v1.725', checksum: 'aa5712f5' }));` TO lt_html.
     APPEND `        }` TO lt_html.
+    APPEND `` TO lt_html.
+    APPEND `        function startHeartbeat() {` TO lt_html.
+    APPEND `            stopHeartbeat();` TO lt_html.
+    APPEND `            sendPingHeartbeat();` TO lt_html.
+    APPEND `            if (typeof Worker !== 'undefined') {` TO lt_html.
+    APPEND `                try {` TO lt_html.
+    APPEND `                    const workerCode = "let t=null;self.onmessage=function(e){if(e.data==='start'){if(!t)t=setInterval(function(){postMessage('tick');},15000);}else if(e.data==='stop'){clearInterval(t);t=null;}};";` TO lt_html.
+    APPEND `                    const blob = new Blob([workerCode], { type: 'application/javascript' });` TO lt_html.
+    APPEND `                    const workerUrl = URL.createObjectURL(blob);` TO lt_html.
+    APPEND `                    heartbeatWorker = new Worker(workerUrl);` TO lt_html.
+    APPEND `                    heartbeatWorker.onmessage = function(e) {` TO lt_html.
+    APPEND `                        if (e.data === 'tick') sendPingHeartbeat();` TO lt_html.
+    APPEND `                    };` TO lt_html.
+    APPEND `                    heartbeatWorker.postMessage('start');` TO lt_html.
+    APPEND `                    return;` TO lt_html.
+    APPEND `                } catch (err) {` TO lt_html.
+    APPEND `                    console.warn("Could not start Web Worker heartbeat, falling back to setInterval:", err);` TO lt_html.
+    APPEND `                }` TO lt_html.
+    APPEND `            }` TO lt_html.
+    APPEND `            pingInterval = setInterval(sendPingHeartbeat, 15000);` TO lt_html.
+    APPEND `        }` TO lt_html.
+    APPEND `` TO lt_html.
+    APPEND `        function stopHeartbeat() {` TO lt_html.
+    APPEND `            if (pingInterval) { clearInterval(pingInterval); pingInterval = null; }` TO lt_html.
+    APPEND `            if (heartbeatWorker) {` TO lt_html.
+    APPEND `                try { heartbeatWorker.postMessage('stop'); heartbeatWorker.terminate(); } catch (e) {}` TO lt_html.
+    APPEND `                heartbeatWorker = null;` TO lt_html.
+    APPEND `            }` TO lt_html.
+    APPEND `        }` TO lt_html.
+    APPEND `` TO lt_html.
+    APPEND `        document.addEventListener('visibilitychange', () => {` TO lt_html.
+    APPEND `            if (document.visibilityState === 'visible' && activeTopic) {` TO lt_html.
+    APPEND `                activeRelays.forEach(relayUrl => {` TO lt_html.
+    APPEND `                    const ws = socketMap.get(relayUrl);` TO lt_html.
+    APPEND `                    if (!ws || ws.readyState === 3 || ws.readyState === 2) {` TO lt_html.
+    APPEND `                        logUI('INFO', 'Restoring connection on focus: ' + relayUrl);` TO lt_html.
+    APPEND `                        connectRelay(relayUrl, 0);` TO lt_html.
+    APPEND `                    }` TO lt_html.
+    APPEND `                });` TO lt_html.
+    APPEND `                sendPingHeartbeat();` TO lt_html.
+    APPEND `            }` TO lt_html.
+    APPEND `        });` TO lt_html.
+    APPEND `` TO lt_html.
+    APPEND `        window.addEventListener('beforeunload', () => {` TO lt_html.
+    APPEND `            stopHeartbeat();` TO lt_html.
+    APPEND `            closeSockets();` TO lt_html.
+    APPEND `        });` TO lt_html.
     APPEND `` TO lt_html.
     APPEND `        window.addEventListener('DOMContentLoaded', () => {` TO lt_html.
     APPEND `            const urlParams = new URLSearchParams(window.location.search);` TO lt_html.
@@ -132,13 +350,12 @@ CLASS ZCL_SAP_DEV_TUNNEL IMPLEMENTATION.
     APPEND `            }` TO lt_html.
     APPEND `        });` TO lt_html.
     APPEND `` TO lt_html.
-    APPEND `        function applyTokenAndConnect() {` TO lt_html.
+    APPEND `        async function applyTokenAndConnect() {` TO lt_html.
     APPEND `            const tokenStr = document.getElementById('tokenInput').value.trim();` TO lt_html.
     APPEND `            if (!tokenStr) return alert("Please paste the Tunnel Pairing Token.");` TO lt_html.
     APPEND `            try {` TO lt_html.
     APPEND `                const parsed = JSON.parse(atob(tokenStr));` TO lt_html.
     APPEND `                if (!parsed.topic) return alert("Invalid Tunnel Pairing Token: missing topic.");` TO lt_html.
-    APPEND `                ` TO lt_html.
     APPEND `                const tokSys = (parsed.system_id || parsed.systemId || '').toUpperCase();` TO lt_html.
     APPEND `                const tokCli = (parsed.client || '').trim();` TO lt_html.
     APPEND `                if (tokSys && tokSys !== sapSystem.toUpperCase()) {` TO lt_html.
@@ -150,6 +367,11 @@ CLASS ZCL_SAP_DEV_TUNNEL IMPLEMENTATION.
     APPEND `` TO lt_html.
     APPEND `                const topic = parsed.topic;` TO lt_html.
     APPEND `                const relays = Array.isArray(parsed.relays) ? parsed.relays.join(', ') : (parsed.relays || 'wss://relay.damus.io, wss://nos.lol, wss://relay.primal.net');` TO lt_html.
+    APPEND `                const key = (parsed.key || parsed.psk || '').trim();` TO lt_html.
+    APPEND `                if (!key || key.length !== 64) {` TO lt_html.
+    APPEND `                    return alert('Invalid or Missing Encryption Key! Unencrypted tunnel connections are prohibited.');` TO lt_html.
+    APPEND `                }` TO lt_html.
+    APPEND `                await importPskKey(key);` TO lt_html.
     APPEND `                startTunnelConnection(topic, relays);` TO lt_html.
     APPEND `            } catch (e) {` TO lt_html.
     APPEND `                alert("Could not parse Tunnel Pairing Token as Base64 JSON: " + e.message);` TO lt_html.
@@ -204,8 +426,7 @@ CLASS ZCL_SAP_DEV_TUNNEL IMPLEMENTATION.
     APPEND `                    ` TO lt_html.
     APPEND `                    const subFilter = { kinds: [20000], '#t': [activeTopic], since: Math.floor(Date.now() / 1000) - 5 };` TO lt_html.
     APPEND `                    ws.send(JSON.stringify(['REQ', 'sub_browser_' + Date.now(), subFilter]));` TO lt_html.
-    APPEND `                    sendPingHeartbeat();` TO lt_html.
-    APPEND `                    if (!pingInterval) pingInterval = setInterval(sendPingHeartbeat, 15000);` TO lt_html.
+    APPEND `                    startHeartbeat();` TO lt_html.
     APPEND `                };` TO lt_html.
     APPEND `                ` TO lt_html.
     APPEND `                ws.onmessage = (event) => handleRelayMessage(event.data);` TO lt_html.
@@ -242,7 +463,7 @@ CLASS ZCL_SAP_DEV_TUNNEL IMPLEMENTATION.
     APPEND `        }` TO lt_html.
     APPEND `        ` TO lt_html.
     APPEND `        function closeSockets() {` TO lt_html.
-    APPEND `            if (pingInterval) { clearInterval(pingInterval); pingInterval = null; }` TO lt_html.
+    APPEND `            stopHeartbeat();` TO lt_html.
     APPEND `            reconnectTimeouts.forEach(t => clearTimeout(t));` TO lt_html.
     APPEND `            reconnectTimeouts.clear();` TO lt_html.
     APPEND `            socketMap.forEach(ws => {` TO lt_html.
@@ -327,14 +548,17 @@ CLASS ZCL_SAP_DEV_TUNNEL IMPLEMENTATION.
     APPEND `            try {` TO lt_html.
     APPEND `                const parsed = JSON.parse(fullJson);` TO lt_html.
     APPEND `                if (parsed.type === 'file_upload_ack' && parsed.id) {` TO lt_html.
-    APPEND `                    const progress = document.getElementById('uploadProgress');` TO lt_html.
-    APPEND `                    if (progress) {` TO lt_html.
-    APPEND `                        progress.style.color = '#166534';` TO lt_html.
-    APPEND `                        progress.innerText = 'Upload complete: ' + parsed.filename + '!';` TO lt_html.
+    APPEND `                    if (processedAckIds.has(parsed.id)) return;` TO lt_html.
+    APPEND `                    processedAckIds.add(parsed.id);` TO lt_html.
+    APPEND `                    if (processedAckIds.size > 200) {` TO lt_html.
+    APPEND `                        const firstVal = processedAckIds.values().next().value;` TO lt_html.
+    APPEND `                        processedAckIds.delete(firstVal);` TO lt_html.
     APPEND `                    }` TO lt_html.
-    APPEND `                    logUI('RES', 'File transfer acknowledged by local daemon: ' + parsed.filename);` TO lt_html.
+    APPEND `                    const progress = document.getElementById('uploadProgress');` TO lt_html.
     APPEND `                } else if (parsed.type === 'file_download' && parsed.filename && parsed.body) {` TO lt_html.
     APPEND `                    handleFileDownloadEnvelope(parsed);` TO lt_html.
+    APPEND `                } else if (parsed.type === 'echo' || parsed.method === 'ECHO') {` TO lt_html.
+    APPEND `                    handleEchoRequest(parsed);` TO lt_html.
     APPEND `                } else if (parsed.id && parsed.method && parsed.url) {` TO lt_html.
     APPEND `                    if (processedRequestIds.has(parsed.id)) return;` TO lt_html.
     APPEND `                    processedRequestIds.add(parsed.id);` TO lt_html.
@@ -347,6 +571,94 @@ CLASS ZCL_SAP_DEV_TUNNEL IMPLEMENTATION.
     APPEND `                }` TO lt_html.
     APPEND `            } catch (err) {` TO lt_html.
     APPEND `                console.error('Failed to parse reassembled payload:', err);` TO lt_html.
+    APPEND `            }` TO lt_html.
+    APPEND `        }` TO lt_html.
+    APPEND `        ` TO lt_html.
+    APPEND `        async function handleEchoRequest(req) {` TO lt_html.
+    APPEND `            try {` TO lt_html.
+    APPEND `                if (processedRequestIds.has(req.id)) return;` TO lt_html.
+    APPEND `                processedRequestIds.add(req.id);` TO lt_html.
+    APPEND `                if (processedRequestIds.size > 200) {` TO lt_html.
+    APPEND `                    const firstVal = processedRequestIds.values().next().value;` TO lt_html.
+    APPEND `                    processedRequestIds.delete(firstVal);` TO lt_html.
+    APPEND `                }` TO lt_html.
+    APPEND `                let rawBytes = new Uint8Array(0);` TO lt_html.
+    APPEND `                if (req.body) {` TO lt_html.
+    APPEND `                    const bin = atob(req.body);` TO lt_html.
+    APPEND `                    const bytes = new Uint8Array(bin.length);` TO lt_html.
+    APPEND `                    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);` TO lt_html.
+    APPEND `                    rawBytes = bytes;` TO lt_html.
+    APPEND `                    if (bytes.length >= 2 && bytes[0] === 0x1f && bytes[1] === 0x8b && typeof DecompressionStream !== 'undefined') {` TO lt_html.
+    APPEND `                        try {` TO lt_html.
+    APPEND `                            const ds = new DecompressionStream('gzip');` TO lt_html.
+    APPEND `                            const writer = ds.writable.getWriter();` TO lt_html.
+    APPEND `                            writer.write(bytes);` TO lt_html.
+    APPEND `                            writer.close();` TO lt_html.
+    APPEND `                            const decompBuf = await new Response(ds.readable).arrayBuffer();` TO lt_html.
+    APPEND `                            rawBytes = new Uint8Array(decompBuf);` TO lt_html.
+    APPEND `                        } catch (e) {` TO lt_html.
+    APPEND `                            console.warn("Echo decompression fallback:", e);` TO lt_html.
+    APPEND `                        }` TO lt_html.
+    APPEND `                    }` TO lt_html.
+    APPEND `                }` TO lt_html.
+    APPEND `                const recvLen = rawBytes.length;` TO lt_html.
+    APPEND `                const hashBuffer = await crypto.subtle.digest('SHA-256', rawBytes);` TO lt_html.
+    APPEND `                const hashArray = Array.from(new Uint8Array(hashBuffer));` TO lt_html.
+    APPEND `                const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');` TO lt_html.
+    APPEND `                ` TO lt_html.
+    APPEND `                let compressedData = null;` TO lt_html.
+    APPEND `                if (typeof CompressionStream !== 'undefined' && rawBytes.length > 0) {` TO lt_html.
+    APPEND `                    try {` TO lt_html.
+    APPEND `                        const cs = new CompressionStream('gzip');` TO lt_html.
+    APPEND `                        const writer = cs.writable.getWriter();` TO lt_html.
+    APPEND `                        writer.write(rawBytes);` TO lt_html.
+    APPEND `                        writer.close();` TO lt_html.
+    APPEND `                        const compBuf = await new Response(cs.readable).arrayBuffer();` TO lt_html.
+    APPEND `                        compressedData = new Uint8Array(compBuf);` TO lt_html.
+    APPEND `                    } catch (e) {}` TO lt_html.
+    APPEND `                }` TO lt_html.
+    APPEND `                const dataToEncode = compressedData || rawBytes;` TO lt_html.
+    APPEND `                const b64Payload = await arrayBufferToBase64(dataToEncode);` TO lt_html.
+    APPEND `                ` TO lt_html.
+    APPEND `                const echoHashBuffer = await crypto.subtle.digest('SHA-256', dataToEncode);` TO lt_html.
+    APPEND `                const echoHashArray = Array.from(new Uint8Array(echoHashBuffer));` TO lt_html.
+    APPEND `                const echoHashHex = echoHashArray.map(b => b.toString(16).padStart(2, '0')).join('');` TO lt_html.
+    APPEND `                ` TO lt_html.
+    APPEND `                const respObj = {` TO lt_html.
+    APPEND `                    id: req.id,` TO lt_html.
+    APPEND `                    status: 200,` TO lt_html.
+    APPEND `                    headers: {` TO lt_html.
+    APPEND `                        'x-echo-bytes': String(recvLen),` TO lt_html.
+    APPEND `                        'x-echo-hash': hashHex,` TO lt_html.
+    APPEND `                        'content-type': 'application/octet-stream'` TO lt_html.
+    APPEND `                    },` TO lt_html.
+    APPEND `                    body: b64Payload` TO lt_html.
+    APPEND `                };` TO lt_html.
+    APPEND `                const fullJson = JSON.stringify(respObj);` TO lt_html.
+    APPEND `                const chunkSize = 32768;` TO lt_html.
+    APPEND `                const totalChunks = Math.ceil(fullJson.length / chunkSize);` TO lt_html.
+    APPEND `                const chunkEvents = [];` TO lt_html.
+    APPEND `                ` TO lt_html.
+    APPEND `                for (let i = 0; i < totalChunks; i++) {` TO lt_html.
+    APPEND `                    const slice = fullJson.substr(i * chunkSize, chunkSize);` TO lt_html.
+    APPEND `                    const chunkPayload = JSON.stringify({` TO lt_html.
+    APPEND `                        type: 'chunk',` TO lt_html.
+    APPEND `                        id: req.id,` TO lt_html.
+    APPEND `                        index: i,` TO lt_html.
+    APPEND `                        total: totalChunks,` TO lt_html.
+    APPEND `                        hash: echoHashHex,` TO lt_html.
+    APPEND `                        chunk: slice` TO lt_html.
+    APPEND `                    });` TO lt_html.
+    APPEND `                    chunkEvents.push(chunkPayload);` TO lt_html.
+    APPEND `                    publishNostrEvent(chunkPayload);` TO lt_html.
+    APPEND `                }` TO lt_html.
+    APPEND `                ` TO lt_html.
+    APPEND `                responseCache.set(req.id, chunkEvents);` TO lt_html.
+    APPEND `                setTimeout(() => responseCache.delete(req.id), 30000);` TO lt_html.
+    APPEND `                logUI('RES', 'ECHO Roundtrip -> 200 OK (' + recvLen + ' bytes, ' + totalChunks + ' chunk(s))');` TO lt_html.
+    APPEND `            } catch (err) {` TO lt_html.
+    APPEND `                console.error("Echo error:", err);` TO lt_html.
+    APPEND `                logUI('ERR', 'Echo error: ' + err.message);` TO lt_html.
     APPEND `            }` TO lt_html.
     APPEND `        }` TO lt_html.
     APPEND `        ` TO lt_html.
@@ -386,7 +698,12 @@ CLASS ZCL_SAP_DEV_TUNNEL IMPLEMENTATION.
     APPEND `                    }` TO lt_html.
     APPEND `                    if (evt.created_at < Math.floor(Date.now() / 1000) - 15) return;` TO lt_html.
     APPEND `                }` TO lt_html.
-    APPEND `                const content = evt.content;` TO lt_html.
+    APPEND `                if (!activeCryptoKey) {` TO lt_html.
+    APPEND `                    logUI('ERR', 'Dropping event: E2EE encryption key is not active.');` TO lt_html.
+    APPEND `                    return;` TO lt_html.
+    APPEND `                }` TO lt_html.
+    APPEND `                let content = await decryptPayload(evt.content);` TO lt_html.
+    APPEND `                if (!content) return;` TO lt_html.
     APPEND `                ` TO lt_html.
     APPEND `                let parsed = null;` TO lt_html.
     APPEND `                try { parsed = JSON.parse(content); } catch(e) {}` TO lt_html.
@@ -434,7 +751,20 @@ CLASS ZCL_SAP_DEV_TUNNEL IMPLEMENTATION.
     APPEND `                    const bin = atob(req.body);` TO lt_html.
     APPEND `                    const bytes = new Uint8Array(bin.length);` TO lt_html.
     APPEND `                    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);` TO lt_html.
-    APPEND `                    fetchOpts.body = bytes;` TO lt_html.
+    APPEND `                    let finalBody = bytes;` TO lt_html.
+    APPEND `                    if (bytes.length >= 2 && bytes[0] === 0x1f && bytes[1] === 0x8b && typeof DecompressionStream !== 'undefined') {` TO lt_html.
+    APPEND `                        try {` TO lt_html.
+    APPEND `                            const ds = new DecompressionStream('gzip');` TO lt_html.
+    APPEND `                            const writer = ds.writable.getWriter();` TO lt_html.
+    APPEND `                            writer.write(bytes);` TO lt_html.
+    APPEND `                            writer.close();` TO lt_html.
+    APPEND `                            const decompBuf = await new Response(ds.readable).arrayBuffer();` TO lt_html.
+    APPEND `                            finalBody = new Uint8Array(decompBuf);` TO lt_html.
+    APPEND `                        } catch (e) {` TO lt_html.
+    APPEND `                            console.warn("Decompression fallback to raw bytes:", e);` TO lt_html.
+    APPEND `                        }` TO lt_html.
+    APPEND `                    }` TO lt_html.
+    APPEND `                    fetchOpts.body = finalBody;` TO lt_html.
     APPEND `                }` TO lt_html.
     APPEND `                ` TO lt_html.
     APPEND `                const targetUrl = new URL(req.url).pathname + new URL(req.url).search;` TO lt_html.
@@ -603,7 +933,12 @@ APPEND `                        clientPrivKeyHex = Array.from(bytes).map(b => b.
     APPEND `` TO lt_html.
     APPEND `        async function publishNostrEvent(payloadStr) {` TO lt_html.
     APPEND `            if (!activeTopic) return;` TO lt_html.
-    APPEND `            const evtMsg = await createSignedNostrEvent(payloadStr);` TO lt_html.
+    APPEND `            if (!activeCryptoKey) {` TO lt_html.
+    APPEND `                logUI('ERR', 'Cannot publish: E2EE encryption key is not active.');` TO lt_html.
+    APPEND `                return;` TO lt_html.
+    APPEND `            }` TO lt_html.
+    APPEND `            const finalContent = await encryptPayload(payloadStr);` TO lt_html.
+    APPEND `            const evtMsg = await createSignedNostrEvent(finalContent);` TO lt_html.
     APPEND `            const jsonStr = JSON.stringify(evtMsg);` TO lt_html.
     APPEND `            socketMap.forEach(ws => {` TO lt_html.
     APPEND `                if (ws.readyState === 1) { // WebSocket.OPEN` TO lt_html.

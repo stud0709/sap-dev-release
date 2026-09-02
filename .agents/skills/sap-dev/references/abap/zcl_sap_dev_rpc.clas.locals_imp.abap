@@ -38,13 +38,27 @@ CLASS lcl_prog_handler IMPLEMENTATION.
     lo_type = CAST cl_abap_datadescr( cl_abap_typedescr=>describe_by_data( lt_textpool_dummy ) ).
 
     LOOP AT it_langs INTO DATA(lv_langu).
-      ls_comp-name = |{ lv_langu }|.
+      IF lv_langu >= 'A' AND lv_langu <= 'Z'.
+        ls_comp-name = |{ lv_langu }|.
+        ls_comp-type = lo_type.
+        APPEND ls_comp TO lt_components.
+      ENDIF.
+    ENDLOOP.
+    IF lt_components IS INITIAL.
+      ls_comp-name = |{ sy-langu }|.
       ls_comp-type = lo_type.
       APPEND ls_comp TO lt_components.
-    ENDLOOP.
-    lo_struct = cl_abap_structdescr=>create( lt_components ).
-    CREATE DATA lo_data TYPE HANDLE lo_struct.
-    ASSIGN lo_data->* TO <ls_trans_map>.
+    ENDIF.
+    SORT lt_components BY name.
+    DELETE ADJACENT DUPLICATES FROM lt_components COMPARING name.
+
+    TRY.
+        lo_struct = cl_abap_structdescr=>create( lt_components ).
+        CREATE DATA lo_data TYPE HANDLE lo_struct.
+        ASSIGN lo_data->* TO <ls_trans_map>.
+      CATCH cx_sy_struct_creation.
+        RETURN.
+    ENDTRY.
 
     LOOP AT it_langs INTO lv_langu.
       ASSIGN COMPONENT |{ lv_langu }| OF STRUCTURE <ls_trans_map> TO FIELD-SYMBOL(<lv_lang_struct>).
@@ -111,13 +125,27 @@ CLASS lcl_dtel_handler IMPLEMENTATION.
     lo_type = CAST cl_abap_datadescr( cl_abap_typedescr=>describe_by_data( ls_dtel_dummy ) ).
 
     LOOP AT it_langs INTO DATA(lv_langu).
-      ls_comp-name = |{ lv_langu }|.
+      IF lv_langu >= 'A' AND lv_langu <= 'Z'.
+        ls_comp-name = |{ lv_langu }|.
+        ls_comp-type = lo_type.
+        APPEND ls_comp TO lt_components.
+      ENDIF.
+    ENDLOOP.
+    IF lt_components IS INITIAL.
+      ls_comp-name = |{ sy-langu }|.
       ls_comp-type = lo_type.
       APPEND ls_comp TO lt_components.
-    ENDLOOP.
-    lo_struct = cl_abap_structdescr=>create( lt_components ).
-    CREATE DATA lo_data TYPE HANDLE lo_struct.
-    ASSIGN lo_data->* TO <ls_trans_map>.
+    ENDIF.
+    SORT lt_components BY name.
+    DELETE ADJACENT DUPLICATES FROM lt_components COMPARING name.
+
+    TRY.
+        lo_struct = cl_abap_structdescr=>create( lt_components ).
+        CREATE DATA lo_data TYPE HANDLE lo_struct.
+        ASSIGN lo_data->* TO <ls_trans_map>.
+      CATCH cx_sy_struct_creation.
+        RETURN.
+    ENDTRY.
 
     DATA: lv_ddobjname TYPE ddobjname.
     lv_ddobjname = iv_object_name.
@@ -198,13 +226,27 @@ CLASS lcl_doma_handler IMPLEMENTATION.
     lo_type = CAST cl_abap_datadescr( cl_abap_typedescr=>describe_by_data( ls_doma_dummy ) ).
 
     LOOP AT it_langs INTO DATA(lv_langu).
-      ls_comp-name = |{ lv_langu }|.
+      IF lv_langu >= 'A' AND lv_langu <= 'Z'.
+        ls_comp-name = |{ lv_langu }|.
+        ls_comp-type = lo_type.
+        APPEND ls_comp TO lt_components.
+      ENDIF.
+    ENDLOOP.
+    IF lt_components IS INITIAL.
+      ls_comp-name = |{ sy-langu }|.
       ls_comp-type = lo_type.
       APPEND ls_comp TO lt_components.
-    ENDLOOP.
-    lo_struct = cl_abap_structdescr=>create( lt_components ).
-    CREATE DATA lo_data TYPE HANDLE lo_struct.
-    ASSIGN lo_data->* TO <ls_trans_map>.
+    ENDIF.
+    SORT lt_components BY name.
+    DELETE ADJACENT DUPLICATES FROM lt_components COMPARING name.
+
+    TRY.
+        lo_struct = cl_abap_structdescr=>create( lt_components ).
+        CREATE DATA lo_data TYPE HANDLE lo_struct.
+        ASSIGN lo_data->* TO <ls_trans_map>.
+      CATCH cx_sy_struct_creation.
+        RETURN.
+    ENDTRY.
 
     DATA: lv_ddobjname TYPE ddobjname.
     lv_ddobjname = iv_object_name.
@@ -289,13 +331,27 @@ CLASS lcl_clas_handler IMPLEMENTATION.
     lo_type = CAST cl_abap_datadescr( cl_abap_typedescr=>describe_by_data( ls_clas_dummy ) ).
 
     LOOP AT it_langs INTO DATA(lv_langu).
-      ls_comp-name = |{ lv_langu }|.
+      IF lv_langu >= 'A' AND lv_langu <= 'Z'.
+        ls_comp-name = |{ lv_langu }|.
+        ls_comp-type = lo_type.
+        APPEND ls_comp TO lt_components.
+      ENDIF.
+    ENDLOOP.
+    IF lt_components IS INITIAL.
+      ls_comp-name = |{ sy-langu }|.
       ls_comp-type = lo_type.
       APPEND ls_comp TO lt_components.
-    ENDLOOP.
-    lo_struct = cl_abap_structdescr=>create( lt_components ).
-    CREATE DATA lo_data TYPE HANDLE lo_struct.
-    ASSIGN lo_data->* TO <ls_trans_map>.
+    ENDIF.
+    SORT lt_components BY name.
+    DELETE ADJACENT DUPLICATES FROM lt_components COMPARING name.
+
+    TRY.
+        lo_struct = cl_abap_structdescr=>create( lt_components ).
+        CREATE DATA lo_data TYPE HANDLE lo_struct.
+        ASSIGN lo_data->* TO <ls_trans_map>.
+      CATCH cx_sy_struct_creation.
+        RETURN.
+    ENDTRY.
 
     LOOP AT it_langs INTO lv_langu.
       ASSIGN COMPONENT |{ lv_langu }| OF STRUCTURE <ls_trans_map> TO FIELD-SYMBOL(<lv_lang_struct>).
@@ -364,13 +420,27 @@ CLASS lcl_msag_handler IMPLEMENTATION.
     lo_type = CAST cl_abap_datadescr( cl_abap_typedescr=>describe_by_data( ls_msag_dummy ) ).
 
     LOOP AT it_langs INTO DATA(lv_langu).
-      ls_comp-name = |{ lv_langu }|.
+      IF lv_langu >= 'A' AND lv_langu <= 'Z'.
+        ls_comp-name = |{ lv_langu }|.
+        ls_comp-type = lo_type.
+        APPEND ls_comp TO lt_components.
+      ENDIF.
+    ENDLOOP.
+    IF lt_components IS INITIAL.
+      ls_comp-name = |{ sy-langu }|.
       ls_comp-type = lo_type.
       APPEND ls_comp TO lt_components.
-    ENDLOOP.
-    lo_struct = cl_abap_structdescr=>create( lt_components ).
-    CREATE DATA lo_data TYPE HANDLE lo_struct.
-    ASSIGN lo_data->* TO <ls_trans_map>.
+    ENDIF.
+    SORT lt_components BY name.
+    DELETE ADJACENT DUPLICATES FROM lt_components COMPARING name.
+
+    TRY.
+        lo_struct = cl_abap_structdescr=>create( lt_components ).
+        CREATE DATA lo_data TYPE HANDLE lo_struct.
+        ASSIGN lo_data->* TO <ls_trans_map>.
+      CATCH cx_sy_struct_creation.
+        RETURN.
+    ENDTRY.
 
     LOOP AT it_langs INTO lv_langu.
       ASSIGN COMPONENT |{ lv_langu }| OF STRUCTURE <ls_trans_map> TO FIELD-SYMBOL(<lv_lang_struct>).
@@ -439,13 +509,27 @@ CLASS lcl_ttyp_handler IMPLEMENTATION.
     lo_type = CAST cl_abap_datadescr( cl_abap_typedescr=>describe_by_data( ls_ttyp_dummy ) ).
 
     LOOP AT it_langs INTO DATA(lv_langu).
-      ls_comp-name = |{ lv_langu }|.
+      IF lv_langu >= 'A' AND lv_langu <= 'Z'.
+        ls_comp-name = |{ lv_langu }|.
+        ls_comp-type = lo_type.
+        APPEND ls_comp TO lt_components.
+      ENDIF.
+    ENDLOOP.
+    IF lt_components IS INITIAL.
+      ls_comp-name = |{ sy-langu }|.
       ls_comp-type = lo_type.
       APPEND ls_comp TO lt_components.
-    ENDLOOP.
-    lo_struct = cl_abap_structdescr=>create( lt_components ).
-    CREATE DATA lo_data TYPE HANDLE lo_struct.
-    ASSIGN lo_data->* TO <ls_trans_map>.
+    ENDIF.
+    SORT lt_components BY name.
+    DELETE ADJACENT DUPLICATES FROM lt_components COMPARING name.
+
+    TRY.
+        lo_struct = cl_abap_structdescr=>create( lt_components ).
+        CREATE DATA lo_data TYPE HANDLE lo_struct.
+        ASSIGN lo_data->* TO <ls_trans_map>.
+      CATCH cx_sy_struct_creation.
+        RETURN.
+    ENDTRY.
 
     DATA: lv_ddobjname TYPE ddobjname.
     lv_ddobjname = iv_object_name.
@@ -523,13 +607,27 @@ CLASS lcl_tabl_handler IMPLEMENTATION.
     lo_type = CAST cl_abap_datadescr( cl_abap_typedescr=>describe_by_data( ls_tabl_dummy ) ).
 
     LOOP AT it_langs INTO DATA(lv_langu).
-      ls_comp-name = |{ lv_langu }|.
+      IF lv_langu >= 'A' AND lv_langu <= 'Z'.
+        ls_comp-name = |{ lv_langu }|.
+        ls_comp-type = lo_type.
+        APPEND ls_comp TO lt_components.
+      ENDIF.
+    ENDLOOP.
+    IF lt_components IS INITIAL.
+      ls_comp-name = |{ sy-langu }|.
       ls_comp-type = lo_type.
       APPEND ls_comp TO lt_components.
-    ENDLOOP.
-    lo_struct = cl_abap_structdescr=>create( lt_components ).
-    CREATE DATA lo_data TYPE HANDLE lo_struct.
-    ASSIGN lo_data->* TO <ls_trans_map>.
+    ENDIF.
+    SORT lt_components BY name.
+    DELETE ADJACENT DUPLICATES FROM lt_components COMPARING name.
+
+    TRY.
+        lo_struct = cl_abap_structdescr=>create( lt_components ).
+        CREATE DATA lo_data TYPE HANDLE lo_struct.
+        ASSIGN lo_data->* TO <ls_trans_map>.
+      CATCH cx_sy_struct_creation.
+        RETURN.
+    ENDTRY.
 
     DATA: lv_ddobjname TYPE ddobjname.
     lv_ddobjname = iv_object_name.
