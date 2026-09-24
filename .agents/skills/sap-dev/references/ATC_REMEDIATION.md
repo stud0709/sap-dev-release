@@ -28,7 +28,7 @@ For each checked-out finding, execute this lookup and resolution chain:
 1.  **Quick Fix First**: Call `sap_atc_quick_fix` (for ATC findings) or `sap_syntax_quick_fix` (for syntax errors) using the `finding_uri`. If a system-suggested rewrite exists, apply it aggressively.
 2.  **Documentation Fetch**: Call `sap_atc_documentation` using the `finding_id` to read the official SAP root-cause context and correction guidelines.
 3.  **DDIC & Where-Used Check**: If the finding relates to database access or invalid tables, run `sap_explore_object` or `sap_where_used` to verify backend metadata structure.
-4.  **Local Syntax Verification**: After editing the source file, call `sap_check_syntax` (or `sap_simulate_snippet` if validating a single procedural block) to ensure the code compiles.
+4.  **Local Syntax Verification**: After editing the source file, call `sap_check_syntax` to ensure the code compiles.
 5.  **Remediation Priority Hierarchy**: Resolve the findings by descending through this priority list:
     *   **Priority 1: SAP Quick-Fix** (`LOGIC_REWRITTEN`)
     *   **Priority 2: Structural Refactoring** (`LOGIC_REWRITTEN`)
@@ -38,7 +38,7 @@ For each checked-out finding, execute this lookup and resolution chain:
 ### Step 3: Status Updates
 Once the code edits are complete and verified:
 1.  Call `sap_update_atc_status` to update the findings status in the SQLite vault (mark them as `LOGIC_REWRITTEN` or `SUPPRESSED`).
-2.  If the object matches the Object Guard whitelist, call `sap_push_source` to deploy the clean code to the SAP backend.
+2.  If the object matches the Object Guard whitelist, call `sap_push` with `aspect: "source"` to deploy the clean code to the SAP backend, followed by `sap_activate_object`.
 3.  If writes are blocked, stop and instruct the user to push the staged files in `./src/<system_alias>/`.
 
 ---

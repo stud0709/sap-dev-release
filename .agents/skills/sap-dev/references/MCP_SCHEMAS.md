@@ -82,45 +82,29 @@ Used to extract flat metadata representations of Database Tables, Structures, an
 
 ```json
 {
-  "name": "MARA",
-  "type": "TABL/DT",
-  "description": "General Material Data",
   "fields": [
     {
-      "name": "MATNR",
-      "key": true,
-      "type": "CHAR",
-      "length": 18,
-      "decimals": 0,
-      "rollname": "MATNR",
-      "description": "Material Number"
-    },
-    {
-      "name": "ERSDA",
-      "key": false,
-      "type": "DATS",
-      "length": 8,
-      "decimals": 0,
-      "rollname": "ERSDA",
-      "description": "Created On"
+      "FIELDNAME": "MATNR",
+      "POSITION": "0001",
+      "KEYFLAG": "X",
+      "MANDATORY": "",
+      "ROLLNAME": "MATNR",
+      "CHECKTABLE": "",
+      "INTTYPE": "C",
+      "INTLEN": "000036",
+      "DATATYPE": "CHAR",
+      "PRECFIELD": ""
     }
-  ]
-}
-```
-
-## sap_map_dependencies
-Maps internal structure dependencies inside an ABAP object via offline AST traversal.
-
-```json
-{
-  "object_name": "ZCL_ROUTER",
-  "object_type": "CLAS",
-  "dependencies": {
-    "tables": ["ZTB_CONFIG", "MARA"],
-    "classes": ["ZCL_LOGGER", "CL_SALV_TABLE"],
-    "interfaces": ["ZIF_ROUTABLE"],
-    "function_modules": ["BAPI_MATERIAL_GET_DETAIL"]
-  }
+  ],
+  "attributes": [
+    {
+      "TABCLASS": "TRANSP",
+      "CONTFLAG": "A",
+      "MAINFLAG": "X"
+    }
+  ],
+  "indexes": [],
+  "foreign_keys": []
 }
 ```
 
@@ -208,8 +192,110 @@ Allows the agent to poll OPEN warnings/errors from the offline database cache dy
 ]
 ```
 
+## sap_debug_trace
+Recommended one-shot debugger trace tool. Sets a breakpoint, fires an asynchronous HTTP trigger, steps, evaluates SY & variables, and auto-detaches cleanly in a single call. Accepts exactly one breakpoint target (`line`, `statement`, `exception`, or `message`).
+
+```json
+{
+  "line": {
+    "class": "CL_ADT_MESSAGE_CLASS_API",
+    "line": 225
+  },
+  "trigger_request": {
+    "uri": "/sap/bc/adt/messageclass?corrNr=A4HK900151",
+    "method": "POST",
+    "body": "<?xml version=\"1.0\"...?>"
+  },
+  "watch_variables": ["LV_SUBRC"],
+  "auto_step_count": 2
+}
+```
+
+Or breaking on statement without line numbers:
+```json
+{
+  "statement": {
+    "statement": "AUTHORITY-CHECK"
+  },
+  "trigger_request": {
+    "uri": "/sap/bc/adt/messageclass?corrNr=A4HK900151"
+  }
+}
+```
+
+Response:
+```json
+{
+  "status": "breakpoint_hit",
+  "session_id": "82B9E1FA1E8A1FE1AB8C2CA3E456A069",
+  "breakpoint_kind": "line",
+  "breakpoint_uri": "/sap/bc/adt/oo/classes/cl_adt_message_class_api/source/main#start=225,0",
+  "cleanup_applied": true,
+  "context": {
+    "session_id": "82B9E1FA1E8A1FE1AB8C2CA3E456A069",
+    "stack": [
+      { "level": 0, "program": "CL_ADT_MESSAGE_CLASS_API======CP", "line": 225, "event": "CREATE" }
+    ],
+    "variables": { "LV_SUBRC": { "value": "1" } },
+    "sy": {
+      "subrc": 1,
+      "msgid": "PAK",
+      "msgno": "149",
+      "msgty": "E",
+      "msgv1": "ZTEST",
+      "message_text": "Structure packages cannot contain development objects"
+    }
+  }
+}
+```
+
+## sap_debug_breakpoint
+Unified breakpoint manager to set, list, or clear external or session-scoped breakpoints across Line, Statement, Exception, and Message targets. Exactly one target block must be provided for `set`.
+
+```json
+// Line Breakpoint (optionally for a specific user)
+{
+  "action": "set",
+  "user": "JDOE",
+  "line": {
+    "class": "CL_ADT_MC_RES_CONTROLLER",
+    "line": 352,
+    "condition": "sy-subrc <> 0"
+  }
+}
+
+// Statement Breakpoint
+{
+  "action": "set",
+  "statement": {
+    "statement": "AUTHORITY-CHECK"
+  }
+}
+
+// Exception Breakpoint
+{
+  "action": "set",
+  "exception": {
+    "exception_class": "CX_ROOT"
+  }
+}
+
+// Message Breakpoint
+{
+  "action": "set",
+  "message": {
+    "message_id": "PAK",
+    "message_number": "149",
+    "message_type": "E"
+  }
+}
+
+// Clear all: { "action": "clear" } (or { "action": "clear", "user": "JDOE" })
+// Clear specific: { "action": "clear", "statement": { "statement": "AUTHORITY-CHECK" } }
+```
+
 ## sap_debug_context
-Retrieves variables and stack frame arrays from an active debug session.
+Retrieves variables, SY fields, and stack frame arrays from an active debug session.
 
 ```json
 {
@@ -231,35 +317,164 @@ Retrieves variables and stack frame arrays from an active debug session.
       "uri": "/sap/bc/adt/...#start=10",
       "line": 10
     }
-  ]
+  ],
+  "sy": {
+    "subrc": 0,
+    "msgid": "",
+    "msgno": ""
+  }
 }
 ```
 
 ## sap_fetch_runtime_errors
-Retrieves and parses ABAP Short Dumps (ST22). Below is the detailed mode (extracted crash context).
+Retrieves and parses ABAP Short Dumps (ST22). Supports three modes:
+
+### 1. Single-Turn Deep Diagnostic Mode (`topmost: 1` or `error_uri`)
+Returns deep crash context directly in a single turn with enriched chapters and call frames:
 
 ```json
 {
-  "error_uri": "/sap/bc/adt/runtimeerrors/...",
-  "title": "TIME_OUT",
-  "user_name": "DEVELOPER1",
-  "client": "001",
-  "timestamp": "2026-05-10T09:00:00Z",
-  "chapters": [
+  "short_text": "This line is not contained in the table.",
+  "what_happened": "The current ABAP program had to be terminated...",
+  "error_analysis": "Access failed for table LS_PDI_DATA-ITEMS...",
+  "how_to_correct": "If the exception cannot be prevented, CX_SY_ITAB_LINE_NOT_FOUND must be caught...",
+  "chain_of_exception_objects": "Level: 1 | Class: CX_SY_ITAB_LINE_NOT_FOUND | KEY_NAME: <free key>",
+  "user_and_transaction": "Transaction: /SCWM/RFUI | Program: SAPLZGT_RF_PTWY | User: DEVELOPER1",
+  "termination_point": "Line 91 of include LZGT_RF_PTWYU05",
+  "source_code_extract": "   89 | IF lv_assign_qty IS INITIAL.\n   90 | lo_helper->set_step2( ).\n>>>>> | lo_helper->set_lgbkz_fields( ls_pdi_data-items[ product_no = zptgtl-matnr ]-lgbkz ).\n   92 | ELSE.",
+  "system_fields": {
+    "SY-SUBRC": "0",
+    "SY-TABIX": "1"
+  },
+  "active_calls": [
     {
-      "name": "What happened?",
-      "content": "The program has exceeded the maximum uninterrupted runtime."
+      "level": 4,
+      "event_type": "FUNCTION",
+      "program": "SAPLZGT_RF_PTWY",
+      "include": "LZGT_RF_PTWYU05",
+      "line": 91,
+      "name": "Z_GT_RF_ZPTGT2"
     }
   ],
-  "stack_frames": [
+  "variables": "RESOURCE = {100;MP;UIA45621...}\nLV_ASSIGN_QTY = 0\nZPTGTL-MATNR = PT382837-1"
+}
+```
+*Note: The complete raw ST22 text dump (400+ KB) is automatically persisted to `./tmp/<system>/st22_<id>_full.txt` and its path is returned in `full_text_path` for offline inspection.*
+
+### 2. Raw Full Dump Mode (`full: true`)
+When `full: true` is passed with `topmost: 1` or `error_uri`, returns the complete unformatted ST22 text dump directly (evaluated via spillover if larger than 2 KB).
+
+### 3. Grouped Feed List Mode
+When querying multiple crashes with server-side filters (`user_name`, `runtime_error`, `exception`, `program_name`, `topmost`, `date_from`/`date_to`, `time_from`/`time_to`), returns grouped crash clusters sorted by latest occurrence:
+
+```json
+[
+  {
+    "title": "GETWA_NOT_ASSIGNED",
+    "crash_id": "GETWA_NOT_ASSIGNED",
+    "program": "ZCL_TEST",
+    "include": "ZCL_TEST===============CCIMP",
+    "line": 42,
+    "occurrences": 3,
+    "latest_published": "2026-09-10T12:00:00Z",
+    "latest_error_uri": "/sap/bc/adt/runtime/dumps/202609101200000001",
+    "author": "DEVELOPER"
+  }
+]
+```
+
+## sap_fetch_application_log
+Queries SAP Application Log headers (`BALHDR`) and decompresses cluster message blocks (`BALDAT`).
+
+```json
+{
+  "logs": [
     {
-      "program": "ZCL_EXAMPLE=================CP",
-      "include": "ZCL_EXAMPLE=================CM001",
-      "line": 45
+      "log_handle": "00000000000000000001",
+      "log_number": "000000000001",
+      "object": "CIF",
+      "subobject": "ORDER",
+      "extnumber": "SO_100234",
+      "aluser": "DEVELOPER",
+      "aldate": "20260910",
+      "altime": "143000",
+      "alprog": "Z_PROCESS_ORDERS",
+      "messages": [
+        {
+          "msgty": "E",
+          "msgid": "ZSALES",
+          "msgno": "042",
+          "message_text": "Sales order 100234 could not be posted: missing customer 5001",
+          "msgv1": "100234",
+          "msgv2": "5001"
+        }
+      ]
     }
   ]
 }
 ```
+
+## sap_verify_transport
+Inspects and verifies CTS transport requests and tasks across `E070`, `E071`, and `E071K` without requiring raw SQL.
+
+```json
+{
+  "transport_request": "TR1K900123",
+  "type": "workbench request",
+  "status": "D",
+  "status_text": "modifiable",
+  "owner": "DEVELOPER",
+  "is_task": false,
+  "tasks": [
+    {
+      "task": "TR1K900124",
+      "type": "development/correction",
+      "status": "D",
+      "status_text": "modifiable",
+      "owner": "DEVELOPER"
+    }
+  ],
+  "target_found": true,
+  "target_locked": true,
+  "objects_count": 1,
+  "objects": [
+    {
+      "transport_request": "TR1K900124",
+      "pgmid": "R3TR",
+      "object": "CLAS",
+      "obj_name": "ZCL_MY_CLASS",
+      "lockflag": "X"
+    }
+  ],
+  "keys_count": 0,
+  "keys": []
+}
+```
+
+## sap_fetch_spool
+Retrieves decoded report and background job spool output lines directly via `RSPO_RETURN_SPOOLJOB`:
+
+```json
+{
+  "status": "success",
+  "metadata": {
+    "rqident": "12345",
+    "rq2name": "ZREPORT",
+    "rqowner": "DEVELOPER",
+    "rqclient": "100",
+    "rqcretime": "20260910120000",
+    "rqlines": 150
+  },
+  "total_lines": 150,
+  "lines": [
+    "--------------------------------------------------------------------------------",
+    "| Material | Description                   | Plant | Unrestricted Stock | Unit |",
+    "--------------------------------------------------------------------------------",
+    "| MAT001   | Bearing Assembly              | 1000  |                250 | PC   |"
+  ]
+}
+```
+
 
 ## sap_explore_odata_service
 Fetches a parsed representation of the OData metadata schema, organizing entity sets by name with their defined key fields and properties.
@@ -338,7 +553,7 @@ Returns all supported capabilities of the active workspace, detailing embedded o
 
 ---
 
-## sap_search_customizing_node
+## sap_search_customizing
 Returns matched SPRO customizing activities with navigation paths, maintenance targets, and technical attributes:
 
 ```json
@@ -356,39 +571,62 @@ Returns matched SPRO customizing activities with navigation paths, maintenance t
 ]
 ```
 
+Or reverse SPRO paths when `object_name` is provided:
+
+```json
+{
+  "object_name": "TB034",
+  "spro_paths": [
+    ["Cross-Application Components", "Payment Cards", "Basic Settings", "Maintain Payment Card Categories"]
+  ]
+}
+```
+
 ---
 
-## sap_get_customizing_schema
-Returns the structural metadata, key flags, check tables, and domain fixed values for a customizing target:
+## sap_explore_customizing
+Returns complete unified context for a customizing view/table: DDIC schema, key flags, check tables, domain fixed values, SPRO breadcrumbs, official IMG documentation, and sample records:
 
 ```json
 {
   "target": "TB034",
-  "object_type": "VIEW",
-  "maintenance_type": "1",
-  "overview_screen": "0420",
-  "detail_screen": "0000",
-  "header_text": "Payment Card Categories",
-  "fields": [
-    {
-      "fieldname": "CCINS",
-      "key": true,
-      "datatype": "CHAR",
-      "leng": 4,
-      "checktable": "TB033",
-      "fieldtext": "Payment Card Category"
-    },
-    {
-      "fieldname": "CCTYP",
-      "key": false,
-      "datatype": "CHAR",
-      "leng": 2,
-      "domain_values": [
-        { "domvalue_l": "01", "ddtext": "Credit Card" },
-        { "domvalue_l": "02", "ddtext": "Procurement Card" }
-      ],
-      "fieldtext": "Payment Card Type"
-    }
+  "resolved_view": "TB034",
+  "schema": {
+    "target": "TB034",
+    "object_type": "VIEW",
+    "maintenance_type": "1",
+    "overview_screen": "0420",
+    "detail_screen": "0000",
+    "header_text": "Payment Card Categories",
+    "fields": [
+      {
+        "fieldname": "CCINS",
+        "key": true,
+        "datatype": "CHAR",
+        "leng": 4,
+        "checktable": "TB033",
+        "fieldtext": "Payment Card Category"
+      },
+      {
+        "fieldname": "CCTYP",
+        "key": false,
+        "datatype": "CHAR",
+        "leng": 2,
+        "domain_values": [
+          { "domvalue_l": "01", "ddtext": "Credit Card" },
+          { "domvalue_l": "02", "ddtext": "Procurement Card" }
+        ],
+        "fieldtext": "Payment Card Type"
+      }
+    ]
+  },
+  "spro_paths": [
+    ["Cross-Application Components", "Payment Cards", "Basic Settings", "Maintain Payment Card Categories"]
+  ],
+  "documentation": "In this IMG activity, you define payment card categories...",
+  "existing_data": [
+    { "CCINS": "AMEX", "CCTYP": "01" },
+    { "CCINS": "VISA", "CCTYP": "01" }
   ]
 }
 ```
@@ -401,17 +639,136 @@ Returns the final step execution status, window title, dynpro coordinates, and s
 ```json
 {
   "status": "COMPLETED",
-  "message": "All 5 steps executed successfully.",
-  "sequence_name": "SM30_NEW_ENTRIES",
-  "total_steps": 5,
-  "step_index": 5,
-  "system": "NPL",
-  "client": "001",
+  "message": "All 3 steps executed successfully.",
+  "sequence_name": "DISPLAY_COUNTRY_TABLE",
+  "total_steps": 3,
+  "step_index": 3,
+  "system": "TD1",
+  "client": "300",
   "transaction": "SM30",
-  "program": "SAPLBUS4",
-  "dynpro": "420",
-  "window_title": "Display View \"BP: Payment Card Category\": Overview"
+  "program": "SAPMSVMA",
+  "dynpro": "100",
+  "window_title": "Tabellensicht-Pflege: Einstieg"
 }
 ```
 
+---
 
+## sap_gui_inspect
+Returns the visual window state, classified semantic controls, and smart `@`-aliases:
+
+```json
+{
+  "system": "TD1",
+  "client": "300",
+  "session": 1,
+  "modal_index": 0,
+  "window_title": "Warehouse Management Monitor SAP - Whse. 0001 (Time Zone )",
+  "program": "/SCWM/R_WME_MONITOR",
+  "dynpro": "1",
+  "transaction": "/SCWM/MON",
+  "aliases": {
+    "@tree": "wnd[0]/usr/shell/splitterContainer[0]/shellcont[0]/shell",
+    "@grid": "wnd[0]/usr/shell/splitterContainer[1]/shellcont[1]/shell/splitterContainer[1]/shellcont[1]/shell",
+    "@alv": "wnd[0]/usr/shell/splitterContainer[1]/shellcont[1]/shell/splitterContainer[1]/shellcont[1]/shell",
+    "@grid:HUIDENT": "wnd[0]/usr/shell/splitterContainer[1]/shellcont[1]/shell/splitterContainer[1]/shellcont[1]/shell"
+  },
+  "controls": [
+    {
+      "alias": "@tree",
+      "type": "GuiTree",
+      "subtype": "Tree",
+      "role": "Navigation Tree",
+      "id": "wnd[0]/usr/shell/splitterContainer[0]/shellcont[0]/shell",
+      "sample_nodes": ["Outbound", "Documents", "Handling Unit", "Physical Stock"]
+    },
+    {
+      "alias": "@grid",
+      "type": "GuiGridView",
+      "subtype": "GridView",
+      "role": "ALV Grid",
+      "id": "wnd[0]/usr/shell/splitterContainer[1]/shellcont[1]/shell/splitterContainer[1]/shellcont[1]/shell",
+      "columns": ["HUIDENT", "LGNUM", "VGBEL", "CREATED_BY"],
+      "row_count": 24,
+      "selected_rows": [0],
+      "toolbar_buttons": ["&MB_OTHER", "&FIND", "&SORT_ASC", "&FILTER"]
+    }
+  ]
+}
+```
+
+---
+
+## sap_maintain_customizing
+Executes declarative record maintenance (`INSERT_UPDATE` / `DELETE`) on SAP customizing tables/views (SM30/SM34):
+
+```json
+{
+  "result": {
+    "status": "SUCCESS",
+    "customizing_target": "TB034",
+    "action": "INSERT_UPDATE",
+    "processed_rows": 2,
+    "inserted": 1,
+    "updated": 1,
+    "deleted": 0,
+    "transport_request": "DEVK900123",
+    "message": "Customizing entries saved successfully"
+  }
+}
+```
+
+---
+
+## sap_fetch (aspects: "definitions", "implementations", "testclasses", "macros")
+Fetches a specific class pool component directly into `./src/` (or `./tmp/` if `for_editing: false`):
+
+```json
+{
+  "file_path": "src/DEV/zcl_my_class.clas.locals_def.abap",
+  "object_uri": "/sap/bc/adt/oo/classes/zcl_my_class/includes/definitions",
+  "version": 0,
+  "lines_count": 42,
+  "etag": "20260911140000"
+}
+```
+
+---
+
+## sap_push (aspects: "definitions", "implementations", "testclasses", "macros")
+Pushes a targeted class pool component and records an aspect-specific version record in SQLite:
+
+```json
+{
+  "success": true,
+  "object_uri": "/sap/bc/adt/oo/classes/zcl_my_class/includes/definitions",
+  "version": 1,
+  "lines_added": 12,
+  "lines_removed": 2,
+  "etag": "20260911141000",
+  "transport": "DEVK900123"
+}
+```
+
+---
+
+## sap_export_diagnostics
+Exports a Zero-Trust sanitized diagnostic package containing environment metadata, recent ADT/MCP logs, source mutations, and pipeline capabilities:
+
+```json
+{
+  "status": "success",
+  "file_path": "tmp/diagnostics_all_20260923_140524.json",
+  "file_size": 45120,
+  "format": "json",
+  "system_alias": "DEV1",
+  "summary": "Exported 45 ADT logs, 50 MCP logs, 12 mutation records, and 18 capabilities to tmp/diagnostics_all_20260923_140524.json (45120 bytes, 14 sensitive redactions applied).",
+  "entry_counts": {
+    "adt_logs": 45,
+    "mcp_logs": 50,
+    "mutations": 12,
+    "capabilities": 18
+  },
+  "created_at": "2026-09-23T14:05:24Z"
+}
+```

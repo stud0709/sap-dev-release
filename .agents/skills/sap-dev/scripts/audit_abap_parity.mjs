@@ -7,7 +7,7 @@
  * and spotlight potential semantic shifts (function calls, DB queries, bitmasks) for human/agent review.
  * 
  * Usage:
- *   node .agents/skills/sap-dev/scripts/audit_abap_parity.mjs --target .agents/skills/sap-dev/references/abap/zcl_sap_dev_dev_helper.clas.abap
+ *   node .agents/skills/sap-dev/scripts/audit_abap_parity.mjs --target sap-bridge/abap/zcl_sap_dev_dev_helper.clas.abap
  *   node .agents/skills/sap-dev/scripts/audit_abap_parity.mjs --git-baseline HEAD~1:... --target ...
  */
 
@@ -44,10 +44,10 @@ for (let i = 0; i < args.length; i++) {
 }
 
 if (!baselineInput && !gitBaselineRef) {
-  gitBaselineRef = 'HEAD~1:.agents/skills/sap-dev/references/abap/zcl_sap_dev_dev_helper.clas.abap';
+  gitBaselineRef = 'HEAD~1:sap-bridge/abap/zcl_sap_dev_dev_helper.clas.abap';
 }
 if (targetInputs.length === 0) {
-  targetInputs = ['.agents/skills/sap-dev/references/abap/zcl_sap_dev_dev_helper.clas.abap'];
+  targetInputs = ['sap-bridge/abap/zcl_sap_dev_dev_helper.clas.abap'];
 }
 
 // Helper: Sibling File Auto-Discovery
