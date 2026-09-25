@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import sys
 import json
+import re
 import urllib.request
 
 def log(msg):
@@ -20,6 +21,12 @@ def main():
 
     if not dashboard_url or not token:
         print(json.dumps({"success": False, "error_message": "Missing authentication params"}))
+        return
+
+    # SAP object names only contain letters, digits, underscore and slash.
+    # Reject anything else to prevent SQL injection via prog_name below.
+    if not re.fullmatch(r"[A-Z0-9_/]{1,30}", obj_name):
+        print(json.dumps({"success": False, "error_message": "Invalid object_name"}))
         return
 
     # Program name for FUGR is SAPL<FUGR_NAME>
