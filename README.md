@@ -1,6 +1,19 @@
 # SAP Agent Skill (`sap-dev`)
 
-Autonomous AI Agent Skill connecting modern AI IDEs and agents (Google Antigravity, Cursor, Windsurf, Claude Code) directly to SAP ABAP systems via the Model Context Protocol (MCP).
+**Give your AI coding agent the tools to work inside SAP.**
+
+`sap-dev` connects your AI IDE to live SAP ABAP systems, enabling your agent to explore existing code, implement changes, validate them with SAP's own compiler, run tests, and investigate runtime behavior. It combines SAP tooling with workflow guidance and a dashboard where you control the agent's permissions.
+
+Connect modern AI IDEs and agents such as Google Antigravity, Cursor, Windsurf, and Claude Code through the Model Context Protocol (MCP).
+
+## What can your agent do?
+
+- **Understand your SAP system:** Search source code, trace dependencies and where-used references, and explore DDIC objects, enhancements, and OData services. [Explore capabilities](https://github.com/stud0709/sap-dev-release/wiki/Explorative-Tools)
+- **Develop with real SAP feedback:** Fetch, edit, syntax-check, push, and activate ABAP objects; run ABAP Unit tests and review version differences. [Development workflow](https://github.com/stud0709/sap-dev-release/wiki/Code-Editing)
+- **Investigate runtime problems:** Set breakpoints, step through execution, inspect variables, and capture request traces. [Debugging](https://github.com/stud0709/sap-dev-release/wiki/Debugging)
+- **Work through ATC findings:** Give the agent an imported ATC run to investigate and remediate, with progress visible in the dashboard. [ATC remediation](https://github.com/stud0709/sap-dev-release/wiki/Processing-ATC-Findings)
+- **Maintain SAP Customizing:** Discover SPRO activities, inspect configuration, and apply approved changes with transport recording. [Customizing](https://github.com/stud0709/sap-dev-release/wiki/Customizing-Management)
+- **Stay in control:** Approve object writes, API access, and GUI operations through dashboard guards, with encrypted connection settings and optional Cloudification API checks. [Permissions](https://github.com/stud0709/sap-dev-release/wiki/Permissions)
 
 ---
 
