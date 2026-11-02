@@ -63,6 +63,12 @@ This toolset provides capabilities to inspect, generate, and activate source cod
 
 ---
 
+## Privacy
+
+The software automatically collects pseudonymous usage statistics, retained for 14 days. Read the [Privacy Statement](PRIVACY.md) before installation or updating.
+
+---
+
 ## 📄 License
 
 This software is licensed under the terms described in [LICENSE.md](LICENSE.md).
