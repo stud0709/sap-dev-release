@@ -6,7 +6,7 @@ This statement explains the automatic usage data collected by the software. For 
 
 ## What is collected
 
-The software collects pseudonymous usage statistics, including an installation identifier, a hashed workspace identifier, and activity timestamps. Workspace names and paths are not transmitted. These identifiers allow records to be linked over time and associated with an installation; the records are not fully anonymous.
+The software collects pseudonymous usage statistics, including an installation identifier, a hashed workspace identifier, activity timestamps, tool names, and call counts. Workspace names and paths are not transmitted. These identifiers allow records to be linked over time and associated with an installation; the records are not fully anonymous.
 
 Usage telemetry does not include SAP source code, business data, prompts, tool arguments or results, SAP system names or addresses, SAP usernames, passwords, or credentials supplied by you.
 
