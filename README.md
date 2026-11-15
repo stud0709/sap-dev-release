@@ -23,7 +23,7 @@ The `sap-dev` AI Skill is distributed as pre-packaged release archives published
 
 👉 **[Download the Latest Release from GitHub Releases](https://github.com/stud0709/sap-dev-release/releases)**
 
-Each release contains the complete autonomous skill bundle, including cross-compiled binaries (`sap-bridge` for Windows, Linux, and macOS Intel / Apple Silicon), full reference guides, ATC remediation protocols, and developer manuals.
+Each release contains the complete autonomous skill bundle, including cross-compiled binaries (`sap-bridge` for Windows, Linux, and macOS Intel / Apple Silicon). The runtime embeds its execution guides, released wiki, ATC remediation guidance and matching backend references. Agents retrieve documentation through the connected documentation tools.
 
 ---
 
@@ -46,6 +46,7 @@ Each release contains the complete autonomous skill bundle, including cross-comp
    ```
 3. **Configure & Launch**:
    - Follow the step-by-step setup and connection guide in the [Project Wiki](https://github.com/stud0709/sap-dev-release/wiki).
+   - Sign in to the intended organization, then unlock the separate workspace vault. Account creation alone does not grant organization access; see [Sign-in and organizations](https://github.com/stud0709/sap-dev-release/wiki/Sign-in-and-Organizations).
    - Configure your target SAP landscape credentials in the local web dashboard.
 
 ---
@@ -65,7 +66,7 @@ This toolset provides capabilities to inspect, generate, and activate source cod
 
 ## Privacy
 
-The software automatically collects pseudonymous usage statistics, retained for 14 days. Read the [Privacy Statement](PRIVACY.md) before installation or updating.
+The software automatically collects account-attributed usage statistics, including verified user and organization names when available, retained for 14 days. Read the [Privacy Statement](PRIVACY.md) before installation or updating.
 
 ---
 
