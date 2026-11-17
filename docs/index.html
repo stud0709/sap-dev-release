@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="referrer" content="no-referrer">
+    <meta name="robots" content="noindex">
+    <title>Continue in SAP® Bridge</title>
+    <script>
+        const callback = new URL(window.location.href);
+        if (callback.searchParams.has('error')) {
+            document.documentElement.dataset.workosError = '';
+        }
+        if (callback.search || callback.hash) {
+            window.history.replaceState(null, '', callback.pathname);
+        }
+    </script>
+    <link rel="stylesheet" href="site.css">
+</head>
+<body>
+    <main>
+        <h1>Continue in SAP® Bridge</h1>
+        <p class="intro">Open the dashboard for your workspace on the computer where you use SAP® Bridge.</p>
+        <p class="notice">WorkOS reported an error. If you were accepting an invitation, try the link in your email again or contact your organization administrator.</p>
+        <ol>
+            <li>Start SAP® Bridge and open your project in your IDE.</li>
+            <li>Open the dashboard shortcut in your project folder, or ask your coding agent for the dashboard link.</li>
+            <li>Click <strong>Sign in</strong> in the dashboard and use the account you registered with WorkOS.</li>
+        </ol>
+        <nav aria-label="Help">
+            <a class="primary" href="https://github.com/stud0709/sap-dev-release/wiki/Sign-in-and-Organizations#1-start-sign-in">Sign-in guide</a>
+            <a href="https://github.com/stud0709/sap-dev-release#-installation--setup">Install SAP® Bridge</a>
+        </nav>
+    </main>
+</body>
+</html>
